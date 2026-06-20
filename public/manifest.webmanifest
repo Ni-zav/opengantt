@@ -1,0 +1,10 @@
+{
+  "name": "OpenGantt",
+  "short_name": "OpenGantt",
+  "description": "Open-source, local-first Gantt planning.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f4f0",
+  "theme_color": "#185f46",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

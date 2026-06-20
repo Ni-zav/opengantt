@@ -1,0 +1,13 @@
+{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "name": "Golden project",
+  "updatedAt": "2026-06-20T00:00:00.000Z",
+  "defaultCalendarId": "default",
+  "calendars": [{ "id": "default", "name": "Standard week", "workingDays": [1, 2, 3, 4, 5], "exceptions": { "2026-06-22": false } }],
+  "tasks": [
+    { "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "parentId": null, "order": 0, "name": "Design", "type": "task", "schedulingMode": "auto", "start": "2026-06-19", "duration": 2, "progress": 50, "calendarId": "default", "constraint": { "type": "asap" } },
+    { "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "parentId": null, "order": 1, "name": "Launch", "type": "milestone", "schedulingMode": "manual", "start": "2026-06-24", "duration": 0, "progress": 0, "calendarId": "default", "constraint": { "type": "must-start-on", "date": "2026-06-24" } }
+  ],
+  "dependencies": [{ "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd", "from": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "to": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "type": "FS", "lag": 1 }],
+  "commentThreads": [{ "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc", "taskId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "resolved": false, "comments": [{ "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", "authorId": null, "authorName": "Planner", "body": "Review with @owner", "mentions": ["owner"], "createdAt": "2026-06-20T00:00:00.000Z" }] }]
+}

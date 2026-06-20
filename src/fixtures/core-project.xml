@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project xmlns="http://schemas.microsoft.com/project">
+  <Name>Golden MSPDI plan</Name>
+  <Tasks>
+    <Task><UID>1</UID><Name>Delivery</Name><OutlineLevel>1</OutlineLevel><Summary>1</Summary><Start>2026-06-19T08:00:00</Start><Duration>P3D</Duration></Task>
+    <Task><UID>2</UID><Name>Build</Name><OutlineLevel>2</OutlineLevel><Start>2026-06-19T08:00:00</Start><Duration>PT16H0M0S</Duration><PercentComplete>50</PercentComplete></Task>
+    <Task><UID>3</UID><Name>Launch</Name><OutlineLevel>1</OutlineLevel><Start>2026-06-24T08:00:00</Start><Duration>PT0H0M0S</Duration><Milestone>1</Milestone><Manual>1</Manual><PredecessorLink><PredecessorUID>2</PredecessorUID><Type>1</Type><LinkLag>4800</LinkLag></PredecessorLink></Task>
+  </Tasks>
+  <Resources><Resource><UID>1</UID><Name>Unsupported resource</Name></Resource></Resources>
+</Project>
