@@ -55,6 +55,7 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Indenting changes `parentId` only; never convert a task to a summary implicitly. Consecutive indents create siblings under the same parent.
 - Hierarchy collapse is UI-only and must not mutate project data. Tasks with children use rounded derived-progress group bars and direct parent-to-child arrows on the timeline.
 - Task rows begin immediately below the single 48px header; do not add a second header offset inside `rows-space`. Hierarchy connectors match the destination child's outline hue and depth desaturation.
+- Keep the TypeScript `ROW_HEIGHT` and CSS `--row-height` synchronized at 48px. Task names wrap visually to two lines, but entered newlines are normalized to spaces in project data.
 - Row drag/drop must preserve subtree membership, reject drops into the dragged subtree, and rewrite task order deterministically.
 - Comment bodies are plain text, capped at 10,000 characters, and removed with their task. Keep rendering free of raw HTML.
 - Keep off-screen task rows unmounted so 10,000-task projects do not create 10,000 DOM rows.

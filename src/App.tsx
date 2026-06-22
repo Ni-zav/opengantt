@@ -17,9 +17,9 @@ import { importCsv, importMspdi, inspectCsv, type CsvMapping } from "./interchan
 import type { CollaborationBinding, Collaborator } from "./collaboration";
 import { exportXlsx, importXlsx } from "./xlsx";
 
-const ROW_HEIGHT = 42;
+const ROW_HEIGHT = 48;
 const DAY_WIDTH = 28;
-const GRID_WIDTH = 670;
+const GRID_WIDTH = 590;
 const collaborationConfigured = Boolean(import.meta.env.VITE_COLLAB_URL);
 
 const dateNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
@@ -300,7 +300,7 @@ export default function App() {
   function dragPlacement(event: React.DragEvent<HTMLDivElement>, task: Task): DropPlacement {
     const bounds = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - bounds.left;
-    if (x < 250 && x > 52 + depthFor(task) * 18) return "inside";
+    if (x < 260 && x > 52 + depthFor(task) * 18) return "inside";
     return event.clientY - bounds.top < bounds.height / 2 ? "before" : "after";
   }
 
@@ -338,7 +338,7 @@ export default function App() {
     } else focus();
   }
 
-  function gridKey(event: React.KeyboardEvent<HTMLInputElement>, row: number, column: number) {
+  function gridKey(event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, row: number, column: number) {
     let nextRow = row, nextColumn = column;
     if (event.key === "ArrowUp") nextRow--;
     else if (event.key === "ArrowDown") nextRow++;
@@ -540,7 +540,7 @@ export default function App() {
                 <div className="task-name-cell" style={{ paddingLeft: 10 + depthFor(task) * 18 }}>
                   <button type="button" className="drag-handle" draggable={!readOnly} disabled={readOnly} aria-label={`Move ${task.name}`} title="Drag to reorder; move right over a task to indent" onClick={event => event.stopPropagation()} onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", task.id); setSelectedId(task.id); setDraggedId(task.id); }} onDragEnd={() => { setDraggedId(""); setDropTarget(null); }}><DotsSixVertical aria-hidden="true" /></button>
                   {hasChildren ? <button type="button" className="hierarchy-toggle" aria-label={`${collapsedIds.has(task.id) ? "Expand" : "Collapse"} ${task.name}`} aria-expanded={!collapsedIds.has(task.id)} onClick={event => { event.stopPropagation(); toggleCollapsed(task.id); }}>{collapsedIds.has(task.id) ? <CaretRight aria-hidden="true" /> : <CaretDown aria-hidden="true" />}</button> : task.parentId ? <ArrowBendDownRight className="hierarchy-branch" aria-hidden="true" /> : <span className="hierarchy-spacer" />}
-                  <input role="gridcell" data-grid-row={task.id} data-grid-col="0" disabled={readOnly} aria-label={`Task name row ${index + 1}`} style={{ fontWeight: hasChildren ? 700 : 400 }} value={task.name} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 0)} onChange={e => updateTask(task.id, { name: e.target.value })} />
+                  <textarea role="gridcell" data-grid-row={task.id} data-grid-col="0" disabled={readOnly} aria-label={`Task name row ${index + 1}`} rows={2} style={{ fontWeight: hasChildren ? 700 : 400 }} value={task.name} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 0)} onChange={e => updateTask(task.id, { name: e.target.value.replace(/\r?\n/g, " ") })} />
                 </div>
                 <input role="gridcell" data-grid-row={task.id} data-grid-col="1" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Start date for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="date" value={task.start} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 1)} onChange={e => updateTask(task.id, { start: e.target.value })} />
                 <input role="gridcell" data-grid-row={task.id} data-grid-col="2" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Duration for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="number" min="0" value={task.duration} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 2)} onChange={e => { const duration = Math.max(0, Number(e.target.value)); updateTask(task.id, { duration, type: task.type === "milestone" && duration > 0 ? "task" : task.type }); }} />
