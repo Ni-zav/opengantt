@@ -36,7 +36,8 @@ Required fields:
 - Task types are `task`, `milestone`, or `summary`.
 - Scheduling modes are `auto` or `manual`.
 - Constraint types are `asap`, `start-no-earlier-than`, `finish-no-later-than`, `must-start-on`, or `must-finish-on`.
-- Summary dates, duration, progress, slack, finish date, critical status, and diagnostics are derived and are not authoritative file fields.
+- Optional `outlineColor` and parent-only `taskColor` values are six-digit CSS hex colors such as `#147d64`.
+- Any task with children is a recursive rollup; its dates, duration, progress, slack, finish date, critical status, and diagnostics are derived and are not authoritative file fields.
 
 Calendar `workingDays` uses JavaScript weekday numbers: Sunday `0` through Saturday `6`. `exceptions` maps a date to `true` for working or `false` for non-working.
 

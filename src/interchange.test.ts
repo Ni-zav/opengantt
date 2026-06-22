@@ -22,6 +22,13 @@ describe("interchange", () => {
     expect(() => parseCsv(text)).toThrow("limited to 10,000 tasks");
   });
 
+  it("keeps valid task colors and drops invalid imported colors", () => {
+    const base = { id: "p", name: "Colors", updatedAt: "2026-06-20T00:00:00Z", calendars: [defaultCalendar()], defaultCalendarId: "default", dependencies: [] };
+    const task = { id: "a", name: "A", order: 0, parentId: null, type: "task", schedulingMode: "auto", start: "2026-06-19", duration: 1, progress: 0, calendarId: "default", constraint: { type: "asap" } };
+    expect(normalizeProject({ ...base, tasks: [{ ...task, outlineColor: "#123abc", taskColor: "#fedcba" }] }).tasks[0]).toMatchObject({ outlineColor: "#123abc", taskColor: "#fedcba" });
+    expect(normalizeProject({ ...base, tasks: [{ ...task, outlineColor: "red" }] }).tasks[0].outlineColor).toBeUndefined();
+  });
+
   it("exports the core MSPDI task and dependency fields", () => {
     const project = normalizeProject({
       id: "p", name: "A & B", updatedAt: "2026-06-20T00:00:00Z", calendars: [defaultCalendar()], defaultCalendarId: "default",

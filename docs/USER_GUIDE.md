@@ -9,6 +9,8 @@ Open the app and edit the sample or choose **New**. Projects autosave to this br
 1. Select **Add task**.
 2. Enter the task name, start date, working-day duration, and progress.
 3. Enable **Advanced** to indent tasks, add dependency types and lags, select calendars, lock manual dates, or add constraints. A task with children becomes a recursive rollup: its dates, duration, progress, and critical state come from its descendants. Use its caret to collapse or expand the branch; timeline arrows show each direct parent-child relationship. Drag a row by its grip to reorder it; move right over another task before dropping to indent the dragged subtree inside it.
+4. Use the pencil on any row to open task details. Outline color is available for every task; hierarchy parents also have a tint that spans their full grid and timeline row.
+5. Open the project menu in the top bar to switch or delete projects. Cloud projects can only be deleted by their owner; every deletion asks for confirmation.
 4. Red bars identify the critical path. The issue banner explains cycles, locked-date conflicts, non-working starts, and invalid summary links.
 5. Open **Details** for comments and calendar exceptions.
 

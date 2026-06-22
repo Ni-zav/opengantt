@@ -46,6 +46,7 @@ function writeTask(map: Y.Map<unknown>, task: Task) {
   setValues(map, {
     id: task.id, parentId: task.parentId, order: task.order, name: task.name, type: task.type,
     schedulingMode: task.schedulingMode, start: task.start, duration: task.duration, progress: task.progress,
+    outlineColor: task.outlineColor, taskColor: task.taskColor,
     calendarId: task.calendarId, constraintType: task.constraint.type, constraintDate: task.constraint.date
   });
 }
@@ -92,6 +93,7 @@ export function projectFromY(doc: Y.Doc): Project {
     id: value(map, "id", ""), parentId: value<string | null>(map, "parentId", null), order: value(map, "order", 0),
     name: value(map, "name", "Untitled task"), type: value(map, "type", "task"), schedulingMode: value(map, "schedulingMode", "auto"),
     start: value(map, "start", new Date().toISOString().slice(0, 10)), duration: value(map, "duration", 1), progress: value(map, "progress", 0),
+    outlineColor: map.get("outlineColor") as string | undefined, taskColor: map.get("taskColor") as string | undefined,
     calendarId: value(map, "calendarId", "default"), constraint: { type: value(map, "constraintType", "asap"), date: map.get("constraintDate") as string | undefined }
   })).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
   const dependencyValues = [...dependencies.values()].map(map => ({ id: value(map, "id", ""), from: value(map, "from", ""), to: value(map, "to", ""), type: value(map, "type", "FS"), lag: value(map, "lag", 0) })).sort((a, b) => a.id.localeCompare(b.id));

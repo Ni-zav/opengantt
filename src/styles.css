@@ -90,9 +90,18 @@ kbd {
 .brand { display: flex; flex: 0 0 auto; align-items: center; gap: 9px; margin-right: 4px; font-size: 14px; font-weight: 760; letter-spacing: -.02em; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: var(--accent); color: #fff; box-shadow: inset 0 1px rgb(255 255 255 / .24); }
 .project-switcher { position: relative; width: clamp(150px, 18vw, 250px); }
-.project-switcher select { width: 100%; height: 34px; appearance: none; padding: 0 30px 0 10px; overflow: hidden; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; font-size: 12px; font-weight: 650; text-overflow: ellipsis; cursor: pointer; }
-.project-switcher select:hover { border-color: var(--line); background: var(--surface-subtle); }
-.project-switcher svg { position: absolute; top: 11px; right: 10px; color: var(--muted); pointer-events: none; }
+.project-trigger { width: 100%; height: 34px; justify-content: space-between; overflow: hidden; padding: 0 10px; border-color: transparent; background: transparent; font-size: 12px; font-weight: 650; cursor: pointer; }
+.project-trigger:hover, .project-trigger[aria-expanded="true"] { border-color: var(--line); background: var(--surface-subtle); }
+.project-trigger span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.project-trigger svg { flex: 0 0 auto; color: var(--muted); }
+.project-menu { position: absolute; z-index: 80; top: 38px; left: 0; display: grid; width: min(310px, calc(100vw - 16px)); max-height: min(420px, 70vh); overflow: auto; padding: 5px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-raised); box-shadow: var(--shadow-panel); }
+.project-menu > div { display: grid; grid-template-columns: minmax(0, 1fr) 32px; align-items: center; border-radius: 7px; }
+.project-menu > div:hover, .project-menu > div.active { background: var(--surface-hover); }
+.project-menu > div > button:first-child { min-width: 0; justify-content: flex-start; border: 0; background: transparent; }
+.project-menu > div > button:first-child span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.project-menu small { margin-left: auto; color: var(--faint); font-size: 9px; text-transform: capitalize; }
+.project-delete { width: 28px; min-height: 28px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.project-delete:hover:not(:disabled) { background: var(--critical-soft); color: var(--danger); }
 .topbar-spacer { flex: 1 1 auto; min-width: 8px; }
 .toolbar-group { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); }
 .toolbar-group > button { min-height: 30px; border-color: transparent; background: transparent; }
@@ -151,8 +160,9 @@ kbd {
 .timeline-head { position: absolute; top: 0; overflow: hidden; }
 .timeline-head span { position: absolute; width: 28px; height: 48px; padding-top: 9px; border-right: 1px solid color-mix(in srgb, var(--line) 58%, transparent); color: var(--faint); font-size: 9px; line-height: 1.25; text-align: center; }
 .timeline-head span.month { color: var(--text); font-weight: 760; }
+.timeline-head span.today { background: color-mix(in srgb, var(--accent-soft) 76%, transparent); color: var(--accent); font-weight: 800; box-shadow: inset 0 -2px var(--accent); }
 .rows-space { position: relative; }
-.task-row { position: absolute; left: 0; display: flex; height: var(--row-height); border-bottom: 1px solid color-mix(in srgb, var(--line) 48%, transparent); transition: background-color 100ms ease, box-shadow 100ms ease; }
+.task-row { position: absolute; left: 0; display: flex; width: 100%; height: var(--row-height); border-bottom: 1px solid color-mix(in srgb, var(--line) 48%, transparent); transition: background-color 100ms ease, box-shadow 100ms ease; }
 .task-row:hover { background: var(--surface-subtle); }
 .task-row.selected { background: color-mix(in srgb, var(--accent-soft) 68%, var(--surface)); box-shadow: inset 3px 0 var(--accent); }
 .task-row.remote-selected { background: #f4effc; }
@@ -161,8 +171,10 @@ kbd {
 .task-row.drop-before::before { top: -1px; }
 .task-row.drop-after::after { bottom: -1px; }
 .task-row.drop-inside .task-cells { background: color-mix(in srgb, var(--accent-soft) 78%, var(--surface)); box-shadow: inset 3px 0 var(--accent), 1px 0 var(--line); }
-.task-cells { position: sticky; left: 0; z-index: 3; display: grid; grid-template-columns: 260px 150px 58px 122px; background: inherit; box-shadow: 1px 0 var(--line); }
-.group-row:not(.selected) .task-cells { background: color-mix(in srgb, var(--surface-subtle) 52%, var(--surface)); }
+.task-cells { position: sticky; left: 0; z-index: 5; display: grid; grid-template-columns: 260px 150px 58px 122px; background: var(--surface); box-shadow: 1px 0 var(--line); }
+.task-row:hover .task-cells { background: var(--surface-subtle); }
+.task-row.selected .task-cells { background: color-mix(in srgb, var(--accent-soft) 68%, var(--surface)); }
+.group-row:not(.selected), .group-row:not(.selected) .task-cells { background: color-mix(in srgb, var(--group-row-color, var(--accent)) 8%, var(--surface)); }
 .task-name-cell { display: flex; min-width: 0; align-items: center; border-right: 1px solid color-mix(in srgb, var(--line) 62%, transparent); color: var(--muted); }
 .drag-handle { flex: 0 0 20px; width: 20px; min-height: 24px; padding: 0; border: 0; background: transparent; color: var(--faint); cursor: grab; opacity: .35; }
 .task-row:hover .drag-handle, .drag-handle:focus-visible { opacity: 1; }
@@ -173,7 +185,11 @@ kbd {
 .hierarchy-toggle { flex: 0 0 auto; width: 20px; min-height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); }
 .hierarchy-toggle:hover { background: var(--surface-hover); color: var(--text); }
 .hierarchy-toggle svg { width: 14px; height: 14px; }
-.task-name-cell > textarea { width: 100%; min-width: 0; max-height: 38px; overflow: hidden; resize: none; padding: 4px 8px; border: 0; background: transparent; color: var(--text); font-size: 12px; line-height: 15px; outline: none; }
+.task-name-cell > textarea { field-sizing: content; width: 100%; min-width: 0; min-height: 15px; max-height: 38px; overflow: hidden; resize: none; padding: 0 6px; border: 0; background: transparent; color: var(--text); font-size: 12px; line-height: 15px; outline: none; }
+.task-edit { flex: 0 0 22px; width: 22px; min-height: 24px; padding: 0; border: 0; background: transparent; color: var(--muted); opacity: 0; }
+.task-row:hover .task-edit, .task-edit:focus-visible { opacity: 1; }
+.task-edit:hover { background: var(--surface-hover); color: var(--text); }
+.task-edit svg { width: 14px; height: 14px; }
 .task-name-cell:hover:has(textarea:not(:disabled)) { background: color-mix(in srgb, var(--surface-hover) 54%, transparent); }
 .task-name-cell:focus-within { position: relative; z-index: 2; background: var(--surface); box-shadow: inset 0 0 0 2px var(--accent); }
 .task-cells > input { width: 100%; min-width: 0; padding: 0 8px; border: 0; border-right: 1px solid color-mix(in srgb, var(--line) 62%, transparent); background: transparent; color: var(--text); font-size: 12px; outline: none; }
@@ -188,6 +204,7 @@ kbd {
 .progress-cell { display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: center; padding: 0 6px; border-right: 1px solid color-mix(in srgb, var(--line) 62%, transparent); color: var(--muted); font-size: 9px; font-variant-numeric: tabular-nums; }
 .progress-cell input { min-width: 0; accent-color: var(--accent); }
 .timeline-row { position: absolute; height: var(--row-height); background-image: repeating-linear-gradient(90deg, transparent 0 27px, color-mix(in srgb, var(--line) 46%, transparent) 27px 28px); }
+.today-column { position: absolute; z-index: 0; width: 28px; border-right: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); background: color-mix(in srgb, var(--accent-soft) 38%, transparent); pointer-events: none; }
 .hierarchy-links { position: absolute; z-index: 4; overflow: visible; pointer-events: none; }
 .hierarchy-line { fill: none; stroke-width: 1.5; }
 .hierarchy-arrow { stroke: none; }
@@ -202,7 +219,7 @@ kbd {
 .bar.invalid { border-color: var(--critical); background: repeating-linear-gradient(45deg, var(--critical) 0 5px, var(--surface) 5px 10px); }
 .bar.milestone { top: 17px; width: 14px !important; height: 14px; border: 0; border-radius: 3px; background: var(--accent); transform: rotate(45deg); }
 .bar.milestone:hover { transform: rotate(45deg) translate(-1px, -1px); }
-.bar.group { top: 13px; height: 22px; border-width: 2px; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, var(--surface)); box-shadow: 0 1px 3px rgb(20 53 41 / .16); }
+.bar.group { top: 13px; height: 22px; border-width: 2px; border-color: var(--accent); background: color-mix(in srgb, var(--task-color, var(--accent)) 15%, var(--surface)); box-shadow: 0 1px 3px rgb(20 53 41 / .16); }
 .bar.group.critical { border-color: var(--critical); background: var(--critical-soft); }
 .bar.group.invalid { border-color: var(--critical); }
 .bottom-add-row { position: absolute; left: 0; z-index: 3; height: var(--row-height); border-bottom: 1px solid var(--line); background: var(--surface-subtle); box-shadow: 1px 0 var(--line); }
@@ -221,6 +238,10 @@ kbd {
 .panel-kicker { color: var(--muted); font-size: 9px; font-weight: 720; letter-spacing: .08em; text-transform: uppercase; }
 .inspector > strong { display: block; margin-top: 2px; font-size: 12px; }
 .inspector label { display: grid; gap: 5px; margin: 10px 0; color: var(--muted); font-size: 10px; font-weight: 680; }
+.appearance-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.appearance-fields label > span { display: flex; gap: 6px; }
+.appearance-fields input[type="color"] { width: 44px; min-height: 34px; padding: 3px; }
+.appearance-fields button { flex: 1; min-width: 0; }
 .inspector label > input, .inspector label > select, .inspector textarea, .cloud-panel input, .cloud-panel select { width: 100%; min-height: 38px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); color: var(--text); }
 .inspector textarea { resize: vertical; line-height: 1.45; }
 .inspector hr { margin: 18px 0; border: 0; border-top: 1px solid var(--line); }

@@ -55,6 +55,7 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Indenting changes `parentId` only; never convert a task to a summary implicitly. Consecutive indents create siblings under the same parent.
 - Hierarchy collapse is UI-only and must not mutate project data. Tasks with children use rounded derived-progress group bars and direct parent-to-child arrows on the timeline.
 - Task rows begin immediately below the single 48px header; do not add a second header offset inside `rows-space`. Hierarchy connectors match the destination child's outline hue and depth desaturation.
+- The entire 590px task grid stays sticky during horizontal timeline scrolling. Task appearance colors are optional validated six-digit hex values; parent tint spans both grid and timeline portions of its row.
 - Keep the TypeScript `ROW_HEIGHT` and CSS `--row-height` synchronized at 48px. Task names wrap visually to two lines, but entered newlines are normalized to spaces in project data.
 - Row drag/drop must preserve subtree membership, reject drops into the dragged subtree, and rewrite task order deterministically.
 - Comment bodies are plain text, capped at 10,000 characters, and removed with their task. Keep rendering free of raw HTML.
@@ -62,6 +63,7 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Keep same-project task rows mounted during edits. Do not animate bar position or width between stale and current schedules; only a project switch may clear the current schedule.
 - Anonymous data stays on the device unless the user explicitly exports it.
 - Cloud projects are copied explicitly, cached for offline access, and removed from IndexedDB on logout.
+- The project switcher is a custom accessible menu so each project can expose a delete action. Local projects may always be deleted after confirmation; cloud deletion remains owner-only and must call the authorized backend before removing the cache.
 - Anonymous undo history is capped locally; collaborative undo tracks only `LOCAL_ORIGIN` Yjs transactions and must never revert another collaborator.
 - Cloud collaboration uses nested Y.Maps rather than one JSON register; do not replace it with whole-snapshot last-writer-wins synchronization.
 - Viewers are read-only in both the client and Hocuspocus connection configuration. UI gating alone is not authorization.

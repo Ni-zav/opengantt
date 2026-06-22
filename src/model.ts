@@ -25,6 +25,8 @@ export interface Task {
   start: string;
   duration: number;
   progress: number;
+  outlineColor?: string;
+  taskColor?: string;
   calendarId: string;
   constraint: TaskConstraint;
 }
@@ -149,6 +151,8 @@ export function normalizeProject(value: unknown): Project {
       start: typeof task.start === "string" ? task.start : isoToday(),
       duration: Number.isInteger(task.duration) ? Number(task.duration) : 1,
       progress: Number.isFinite(task.progress) ? Math.min(100, Math.max(0, Number(task.progress))) : 0,
+      outlineColor: typeof task.outlineColor === "string" && /^#[0-9a-f]{6}$/i.test(task.outlineColor) ? task.outlineColor : undefined,
+      taskColor: typeof task.taskColor === "string" && /^#[0-9a-f]{6}$/i.test(task.taskColor) ? task.taskColor : undefined,
       calendarId: typeof task.calendarId === "string" && calendars.some(c => c.id === task.calendarId) ? task.calendarId : defaultCalendarId,
       constraint: task.constraint && typeof task.constraint === "object" ? task.constraint : { type: "asap" }
     })),
@@ -176,6 +180,7 @@ export function assertProject(value: unknown): asserts value is Project {
     if (!task || typeof task.id !== "string" || typeof task.name !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(task.start)) throw new Error("A task has invalid fields.");
     if (ids.has(task.id)) throw new Error("Task IDs must be unique.");
     if (!Number.isInteger(task.duration) || task.duration < 0 || task.duration > 100_000) throw new Error("Task duration is invalid.");
+    if ((task.outlineColor && !/^#[0-9a-f]{6}$/i.test(task.outlineColor)) || (task.taskColor && !/^#[0-9a-f]{6}$/i.test(task.taskColor))) throw new Error("Task color is invalid.");
     if (task.parentId === task.id) throw new Error("A task cannot be its own parent.");
     ids.add(task.id);
   }
