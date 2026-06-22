@@ -40,4 +40,6 @@ An `.opengantt` file is formatted UTF-8 JSON with `format: "opengantt"` and `ver
 
 ## Deployment
 
-Run the static build directly or use `docker compose up --build -d`. Container, cloud, upgrade, and authorization instructions are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/CLOUD.md`](docs/CLOUD.md).
+The production frontend is live at [opengantt.pages.dev](https://opengantt.pages.dev). Supabase cloud projects work there; realtime collaboration remains disabled until the prepared Cloudflare Container is deployed on a Workers Paid account.
+
+Run the static build directly or use `docker compose up --build -d`. Cloudflare, container, cloud, upgrade, and authorization instructions are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/CLOUD.md`](docs/CLOUD.md).

@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowClockwise, ArrowCounterClockwise, ArrowLineLeft, ArrowLineRight, BracketsCurly, CaretDown,
+  ChartBarHorizontal, CircleNotch, Command, DownloadSimple, FileCsv, FileXls, FolderOpen, Info,
+  LinkSimple, ListBullets, MagnifyingGlass, Plus, Rows, RowsPlusBottom, SidebarSimple, SlidersHorizontal,
+  Trash, UploadSimple, WarningCircle, X
+} from "@phosphor-icons/react";
 import { exportCsv, exportOpenGantt, exportProjectXml, importOpenGantt } from "./io";
 import { createTask, isoToday, sampleProject, uid, type DependencyType, type Project, type Task } from "./model";
 import { schedule, type ScheduleResult } from "./scheduler";
@@ -360,48 +366,55 @@ export default function App() {
     return () => removeEventListener("keydown", keydown);
   }, [project, selectedId, readOnly]);
 
-  if (!project) return <main className="loading">Opening your local workspace…</main>;
+  if (!project) return <main className="loading"><CircleNotch size={22} className="spin" /><span>Opening your workspace</span></main>;
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark">O</span><span>OpenGantt</span></div>
-        <select aria-label="Current project" value={activeId} onChange={e => setActiveId(e.target.value)}>
-          {projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-        <button onClick={newProject}>New</button>
+        <div className="brand"><span className="brand-mark"><Rows size={17} weight="bold" /></span><span>OpenGantt</span></div>
+        <div className="project-switcher">
+          <select aria-label="Current project" value={activeId} onChange={e => setActiveId(e.target.value)}>
+            {projects.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+          <CaretDown size={12} weight="bold" aria-hidden="true" />
+        </div>
+        <button className="icon-button" aria-label="New project" title="New project" onClick={newProject}><Plus size={17} weight="bold" /></button>
         <div className="topbar-spacer" />
         {activeCloud && collaborationConfigured && <span className={`sync-pill ${collaborationStatus}`} role="status" aria-live="polite">{collaborationStatus}</span>}
         {collaborators.length > 0 && <div className="collaborators" aria-label={`${collaborators.length} connected participant${collaborators.length === 1 ? "" : "s"}`}>{collaborators.slice(0, 4).map(person => <span key={person.clientId} title={`${person.user.name}${person.selection?.taskId ? " · selecting a task" : ""}`} style={{ background: person.user.color }}>{person.user.name.slice(0, 1).toUpperCase()}</span>)}{collaborators.length > 4 && <b>+{collaborators.length - 4}</b>}</div>}
-        <button aria-label="Undo" title="Undo (Ctrl+Z)" disabled={readOnly || (!collaboration.current?.canUndo() && !undoStack.current.length)} onClick={undo}>↶</button>
-        <button aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={readOnly || (!collaboration.current?.canRedo() && !redoStack.current.length)} onClick={redo}>↷</button>
-        <button title="Commands (Ctrl+K)" onClick={() => setCommandOpen(true)}>Commands</button>
+        <div className="toolbar-group history-actions">
+          <button className="icon-button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={readOnly || (!collaboration.current?.canUndo() && !undoStack.current.length)} onClick={undo}><ArrowCounterClockwise size={17} /></button>
+          <button className="icon-button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={readOnly || (!collaboration.current?.canRedo() && !redoStack.current.length)} onClick={redo}><ArrowClockwise size={17} /></button>
+        </div>
+        <button className="command-button" title="Commands (Ctrl+K)" onClick={() => setCommandOpen(true)}><Command size={16} /><span>Commands</span><kbd>Ctrl K</kbd></button>
         <span className={`save-state ${saveState.includes("fail") ? "error" : ""}`} role="status" aria-live="polite">{saveState}</span>
         <CloudPanel current={project} activeCloud={activeCloud} onOpen={openCloudProject} onSession={handleCloudSession} onDelete={removeCloudProject} />
-        <button onClick={() => fileInput.current?.click()}>Import</button>
+        <div className="toolbar-group file-actions">
+        <button title="Import project" onClick={() => fileInput.current?.click()}><UploadSimple size={16} /><span>Import</span></button>
         <input ref={fileInput} hidden type="file" accept=".opengantt,.csv,.xml,.xlsx,application/json,text/csv,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e => importFile(e.target.files?.[0])} />
-        <button onClick={() => exportCsv(project)}>CSV</button>
-        <button onClick={() => { setSaveState("Creating workbook…"); exportXlsx(project).then(() => setSaveState("Workbook exported"), error => { setSaveState("XLSX export failed"); alert(error.message); }); }}>XLSX</button>
-        <button onClick={() => exportProjectXml(project)}>XML</button>
-        <button className="primary" onClick={() => exportOpenGantt(project)}>Export</button>
+        <button className="format-button" title="Export CSV" onClick={() => exportCsv(project)}><FileCsv size={16} /><span>CSV</span></button>
+        <button className="format-button" title="Export Excel workbook" onClick={() => { setSaveState("Creating workbook…"); exportXlsx(project).then(() => setSaveState("Workbook exported"), error => { setSaveState("XLSX export failed"); alert(error.message); }); }}><FileXls size={16} /><span>XLSX</span></button>
+        <button className="format-button" title="Export Microsoft Project XML" onClick={() => exportProjectXml(project)}><BracketsCurly size={16} /><span>XML</span></button>
+        <button className="primary export-button" onClick={() => exportOpenGantt(project)}><DownloadSimple size={16} weight="bold" /><span>Export</span></button>
+        </div>
       </header>
 
       <section className="project-heading">
-        <div>
+        <div className="project-meta">
           <input disabled={readOnly} className="project-name" aria-label="Project name" value={project.name} onChange={e => commit(d => { d.name = e.target.value; })} />
-          <p>{activeCloud ? `${activeCloud.role} · ${activeCloud.visibility} cloud project` : "Private on this device · No account required"}</p>
+          <p><span className={`project-state ${activeCloud ? "cloud" : "local"}`}>{activeCloud ? activeCloud.role : "Local"}</span>{activeCloud ? `${activeCloud.visibility} cloud project` : "Private on this device"}</p>
         </div>
-        <div className="toolbar">
-          <div className="mobile-switch" role="group" aria-label="Mobile view"><button aria-pressed={mobileView === "list"} className={mobileView === "list" ? "active" : ""} onClick={() => setMobileView("list")}>List</button><button aria-pressed={mobileView === "timeline"} className={mobileView === "timeline" ? "active" : ""} onClick={() => setMobileView("timeline")}>Timeline</button></div>
-          <button disabled={readOnly} onClick={addTask}>＋ Add task</button>
-          {advancedMode && <><button disabled={!selectedId || readOnly} onClick={linkPrevious}>Link previous</button><button disabled={!selectedId || readOnly} onClick={indentSelected}>Indent</button><button disabled={!selected?.parentId || readOnly} onClick={outdentSelected}>Outdent</button><button disabled={!selectedId} onClick={() => setShowAdvanced(value => !value)}>Details</button></>}
-          <button aria-pressed={advancedMode} onClick={toggleAdvanced}>{advancedMode ? "Simple" : "Advanced"}</button>
-          <button disabled={!selectedId || readOnly} className="danger" onClick={removeSelected}>Delete</button>
+        <div className="toolbar" aria-label="Task tools">
+          <div className="mobile-switch segmented" role="group" aria-label="Mobile view"><button aria-pressed={mobileView === "list"} className={mobileView === "list" ? "active" : ""} onClick={() => setMobileView("list")}><ListBullets size={15} />List</button><button aria-pressed={mobileView === "timeline"} className={mobileView === "timeline" ? "active" : ""} onClick={() => setMobileView("timeline")}><ChartBarHorizontal size={15} />Timeline</button></div>
+          <button className="add-task" disabled={readOnly} onClick={addTask}><Plus size={16} weight="bold" />Add task</button>
+          {advancedMode && <div className="toolbar-group advanced-actions"><button disabled={!selectedId || readOnly} onClick={linkPrevious}><LinkSimple size={15} />Link previous</button><button title="Indent" disabled={!selectedId || readOnly} onClick={indentSelected}><ArrowLineRight size={15} /><span>Indent</span></button><button title="Outdent" disabled={!selected?.parentId || readOnly} onClick={outdentSelected}><ArrowLineLeft size={15} /><span>Outdent</span></button><button disabled={!selectedId} onClick={() => setShowAdvanced(value => !value)}><SidebarSimple size={15} /><span>Details</span></button></div>}
+          <button className="mode-button" aria-pressed={advancedMode} onClick={toggleAdvanced}><SlidersHorizontal size={15} /><span>{advancedMode ? "Advanced" : "Simple"}</span></button>
+          <button title="Delete selected task" disabled={!selectedId || readOnly} className="danger icon-button" onClick={removeSelected}><Trash size={16} /></button>
         </div>
       </section>
-      {showWelcome && <section className="welcome-banner"><div><strong>Your plans stay on this device.</strong><span>Add a task, switch to Advanced for dependencies, or import an existing file. Sign in only when you want cloud sharing.</span></div><button onClick={() => { localStorage.setItem("opengantt.welcome.dismissed", "true"); setShowWelcome(false); }}>Got it</button></section>}
+      {showWelcome && <section className="welcome-banner"><Info size={19} weight="fill" /><div><strong>Your plans stay on this device</strong><span>Add tasks or import a file. Sign in only when you want cloud sharing.</span></div><button onClick={() => { localStorage.setItem("opengantt.welcome.dismissed", "true"); setShowWelcome(false); }}>Got it</button></section>}
 
-      {scheduleResult?.diagnostics.length ? <div className="diagnostics" role="status">{scheduleResult.diagnostics.length} schedule issue{scheduleResult.diagnostics.length === 1 ? "" : "s"}: {scheduleResult.diagnostics[0].message}</div> : null}
+      {scheduleResult?.diagnostics.length ? <div className="diagnostics" role="status"><WarningCircle size={17} weight="fill" /><span><b>{scheduleResult.diagnostics.length} schedule issue{scheduleResult.diagnostics.length === 1 ? "" : "s"}</b>{scheduleResult.diagnostics[0].message}</span></div> : null}
       <main ref={workbenchRef} id="workbench" className={`workbench mobile-${mobileView}`} role="grid" aria-label="Project tasks and timeline" aria-rowcount={ordered.length + 1} aria-colcount={4} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
         <div className="table-head" role="row" aria-rowindex={1} style={{ width: GRID_WIDTH }}>
           <span role="columnheader">Task</span><span role="columnheader">Start</span><span role="columnheader">Days</span><span role="columnheader">Progress</span>
@@ -434,9 +447,10 @@ export default function App() {
             </div>;
           })}
         </div>
+        {!ordered.length && <div className="empty-state"><span className="empty-state-icon"><RowsPlusBottom size={25} /></span><strong>Start with your first task</strong><p>Build a plan from scratch or bring in an existing OpenGantt, Excel, CSV, or Project file.</p><div><button className="primary" disabled={readOnly} onClick={addTask}><Plus size={16} />Add task</button><button onClick={() => fileInput.current?.click()}><FolderOpen size={16} />Import file</button></div></div>}
       </main>
       {showAdvanced && selected && <aside className="inspector" aria-label="Task details">
-        <header><strong>Task details</strong><button aria-label="Close details" onClick={() => setShowAdvanced(false)}>×</button></header>
+        <header><div><span className="panel-kicker">Selected task</span><strong>{selected.name || "Task details"}</strong></div><button className="icon-button" aria-label="Close details" onClick={() => setShowAdvanced(false)}><X size={17} /></button></header>
         <label>Type<select value={selected.type} onChange={e => updateTask(selected.id, { type: e.target.value as Task["type"], duration: e.target.value === "milestone" ? 0 : Math.max(1, selected.duration) })}><option value="task">Task</option><option value="milestone">Milestone</option><option value="summary">Summary</option></select></label>
         <label>Scheduling<select value={selected.schedulingMode} onChange={e => updateTask(selected.id, { schedulingMode: e.target.value as Task["schedulingMode"] })}><option value="auto">Automatic</option><option value="manual">Manual</option></select></label>
         <label>Calendar<select value={selected.calendarId} onChange={e => updateTask(selected.id, { calendarId: e.target.value })}>{project.calendars.map(calendar => <option value={calendar.id} key={calendar.id}>{calendar.name}</option>)}</select></label>
@@ -447,7 +461,7 @@ export default function App() {
         <label>Task<select value={newDepFrom} onChange={e => setNewDepFrom(e.target.value)}><option value="">Choose task</option>{ordered.filter(task => task.id !== selected.id && task.type !== "summary").map(task => <option value={task.id} key={task.id}>{task.name}</option>)}</select></label>
         <div className="inline-fields"><label>Type<select value={newDepType} onChange={e => setNewDepType(e.target.value as DependencyType)}><option>FS</option><option>SS</option><option>FF</option><option>SF</option></select></label><label>Lag<input type="number" value={newDepLag} onChange={e => setNewDepLag(Number(e.target.value))} /></label></div>
         <button onClick={addDependency} disabled={!newDepFrom}>Add dependency</button>
-        <div className="dependency-list">{project.dependencies.filter(dep => dep.to === selected.id).map(dep => <div key={dep.id}><span>{project.tasks.find(task => task.id === dep.from)?.name} · {dep.type}{dep.lag ? ` ${dep.lag > 0 ? "+" : ""}${dep.lag}d` : ""}</span><button aria-label="Remove dependency" onClick={() => commit(draft => { draft.dependencies = draft.dependencies.filter(item => item.id !== dep.id); })}>×</button></div>)}</div>
+        <div className="dependency-list">{project.dependencies.filter(dep => dep.to === selected.id).map(dep => <div key={dep.id}><span>{project.tasks.find(task => task.id === dep.from)?.name} · {dep.type}{dep.lag ? ` ${dep.lag > 0 ? "+" : ""}${dep.lag}d` : ""}</span><button className="icon-button" aria-label="Remove dependency" onClick={() => commit(draft => { draft.dependencies = draft.dependencies.filter(item => item.id !== dep.id); })}><X size={14} /></button></div>)}</div>
         <hr />
         <strong>Calendar exception</strong>
         <label>Date<input type="date" value={holidayDate} onChange={e => setHolidayDate(e.target.value)} /></label>
@@ -464,7 +478,7 @@ export default function App() {
         </article>)}</div>
       </aside>}
       {csvImport && <div className="modal-backdrop"><section className="cloud-panel csv-mapper" role="dialog" aria-modal="true" aria-label="Map CSV columns">
-        <header><div><strong>Map spreadsheet columns</strong><small>Confirm which columns contain task data</small></div><button aria-label="Cancel CSV import" onClick={() => setCsvImport(null)}>×</button></header>
+        <header><div><strong>Map spreadsheet columns</strong><small>Confirm which columns contain task data</small></div><button className="icon-button" aria-label="Cancel CSV import" onClick={() => setCsvImport(null)}><X size={17} /></button></header>
         {(["name", "start", "duration", "progress", "id", "parentId"] as const).map(field => <label key={field}>{field === "parentId" ? "Parent ID" : field[0].toUpperCase() + field.slice(1)}{field === "name" ? " *" : ""}<select value={csvImport.mapping[field] ?? ""} onChange={event => setCsvImport(current => current ? { ...current, mapping: { ...current.mapping, [field]: event.target.value || undefined } } : null)}><option value="">Not imported</option>{csvImport.headers.map(header => <option key={header} value={header}>{header}</option>)}</select></label>)}
         <div className="csv-preview"><table><thead><tr>{csvImport.headers.map(header => <th key={header}>{header}</th>)}</tr></thead><tbody>{csvImport.preview.map((row, index) => <tr key={index}>{csvImport.headers.map((_, column) => <td key={column}>{row[column]}</td>)}</tr>)}</tbody></table></div>
         <button className="primary" disabled={!csvImport.mapping.name} onClick={() => {
@@ -473,7 +487,7 @@ export default function App() {
         }}>Import tasks</button>
       </section></div>}
       {commandOpen && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setCommandOpen(false); }}><section className="command-palette" role="dialog" aria-modal="true" aria-label="Commands">
-        <input autoFocus aria-label="Search commands" placeholder="Search commands…" value={commandQuery} onChange={event => setCommandQuery(event.target.value)} />
+        <div className="command-search"><MagnifyingGlass size={20} /><input autoFocus aria-label="Search commands" placeholder="Search commands…" value={commandQuery} onChange={event => setCommandQuery(event.target.value)} /><kbd>Esc</kbd></div>
         <div>{[
           { name: "Add task", run: addTask, disabled: readOnly },
           { name: "Import project", run: () => fileInput.current?.click() },
@@ -491,7 +505,7 @@ export default function App() {
         <ol className="warning-list">{importWarnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ol>
         <button className="primary" onClick={() => setImportWarnings([])}>Close report</button>
       </section></div>}
-      <footer><span>{ordered.length.toLocaleString()} tasks</span><span><b className="critical-key" /> Critical path</span><span>Local-first · AGPL-3.0</span></footer>
+      <footer><span>{ordered.length.toLocaleString()} task{ordered.length === 1 ? "" : "s"}</span><span><b className="critical-key" />Critical path</span><span>{readOnly ? "Viewer mode" : "Ready"}</span><span className="license-note">Local-first · AGPL-3.0</span></footer>
     </div>
   );
 }

@@ -1,5 +1,25 @@
 # Deployment
 
+## Live Cloudflare deployment
+
+The production frontend is deployed at `https://opengantt.pages.dev`. The root `wrangler.jsonc` deploys `dist/`, and `public/_headers` preserves the same browser security policy as the Nginx image. The Supabase Auth site URL and redirect allow-list include this origin.
+
+Deploy the frontend with collaboration disabled until its Worker exists:
+
+```powershell
+$env:VITE_COLLAB_URL=''
+npm run cloudflare:pages
+```
+
+`cloudflare/wrangler.jsonc` defines one `basic` Cloudflare Container running the existing Hocuspocus service behind the `opengantt-collaboration` Worker. Cloudflare Containers require the Workers Paid plan; the authenticated account was still on Free when this was prepared, so the container has not been deployed. Docker Desktop and CLI 29.5.3 are installed, but this workspace currently receives `WSL/E_ACCESSDENIED` before the backend starts. After enabling the paid plan and starting Docker successfully from the interactive Windows session:
+
+1. Run `npm run cloudflare:deploy` and note the resulting `https://opengantt-collaboration.<subdomain>.workers.dev` URL.
+2. Run `npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --config cloudflare/wrangler.jsonc` and enter the service-role key without storing it in source control.
+3. Set `VITE_COLLAB_URL` to the same URL with `wss://`, rebuild, and run `npm run cloudflare:pages`.
+4. Verify the Worker `/health`, one editor/editor synchronization, public viewer synchronization, and viewer write rejection.
+
+The Worker forwards only WebSocket upgrades and `/health` to the container. Its allowed browser origin is restricted to `https://opengantt.pages.dev`; Supabase remains the persistence and authorization source of truth.
+
 ## Static local-only deployment
 
 `npm run build` creates `dist/`. Any static HTTPS host can serve it. Without Supabase environment values the app remains fully local and does not show sign-in controls.

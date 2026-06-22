@@ -8,14 +8,18 @@
     "dev": "vite",
     "collab:build": "tsc -p tsconfig.server.json && vite build --config vite.server.config.ts",
     "collab:start": "node --env-file=.env.collab.local server-dist/index.js",
+    "cloudflare:deploy": "wrangler deploy --config cloudflare/wrangler.jsonc",
+    "cloudflare:pages": "npm run build && wrangler pages deploy dist --project-name opengantt --branch main --commit-dirty=true",
     "build": "tsc -b && vite build",
     "test": "vitest run"
   },
   "dependencies": {
     "@hocuspocus/server": "^4.3.0",
+    "@phosphor-icons/react": "^2.1.10",
     "yjs": "^13.6.31"
   },
   "devDependencies": {
+    "@cloudflare/containers": "^0.3.7",
     "@hocuspocus/provider": "^4.3.0",
     "@types/node": "^26.0.0",
     "@types/react": "latest",
@@ -28,6 +32,7 @@
     "typescript": "^6.0.3",
     "vite": "^8.0.16",
     "vitest": "latest",
+    "wrangler": "^4.103.0",
     "y-indexeddb": "^9.0.12"
   },
   "overrides": {

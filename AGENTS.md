@@ -4,7 +4,7 @@ Keep this file accurate as the repository changes. Preserve existing guidance wh
 
 ## Product boundaries
 
-OpenGantt is an AGPL-3.0 local-first Gantt web app. The anonymous editor, advanced scheduling, comments, CSV/XLSX/MSPDI interchange, PWA shell, responsive modes, and keyboard productivity features work without configuration. Optional Supabase authentication, cloud projects, roles, public links, and realtime Yjs collaboration require the migration and environment described in `docs/CLOUD.md`. Yjs convergence, offline mapping, local-only undo, XLSX round trips, a golden MSPDI import, a 25-client Hocuspocus room, and read-only server enforcement are tested. The RLS role matrix, public-link revocation, ownership transfer, realtime editor/viewer synchronization, viewer write rejection, and persisted Yjs state were verified against the linked Supabase project on 2026-06-20. Container execution and an interactive browser accessibility audit remain unverified in this workspace because Docker and the in-app browser are unavailable.
+OpenGantt is an AGPL-3.0 local-first Gantt web app. The anonymous editor, advanced scheduling, comments, CSV/XLSX/MSPDI interchange, PWA shell, responsive modes, and keyboard productivity features work without configuration. Optional Supabase authentication, cloud projects, roles, public links, and realtime Yjs collaboration require the migration and environment described in `docs/CLOUD.md`. Yjs convergence, offline mapping, local-only undo, XLSX round trips, a golden MSPDI import, a 25-client Hocuspocus room, and read-only server enforcement are tested. The RLS role matrix, public-link revocation, ownership transfer, realtime editor/viewer synchronization, viewer write rejection, and persisted Yjs state were verified against the linked Supabase project on 2026-06-20. The non-realtime production frontend is live at `https://opengantt.pages.dev`; Supabase Auth redirects and Pages security headers are verified. Docker Desktop and its CLI are installed and `docker-users` is active, but WSL/backend startup is denied in this workspace. The Cloudflare Container remains undeployed because the account needs Workers Paid; the interactive browser audit also remains unavailable.
 
 ## Commands
 
@@ -33,10 +33,11 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - `src/cloud.ts` is the dependency-free Supabase Auth/PostgREST boundary. Never expose a service-role key to it.
 - `src/CloudPanel.tsx` owns optional sign-in, cloud-project, member, and sharing UI.
 - `supabase/migrations/` is the authorization source of truth. Client-side role checks are UX only; retain RLS and RPC checks.
-- `src/styles.css` contains the responsive workbench and theme tokens; no UI framework is used.
+- `src/styles.css` contains the responsive workbench, light/dark tokens, reduced-motion fallbacks, desktop/tablet/mobile layouts, and panel transitions. Native CSS remains the UI system; use Phosphor as the single icon family.
 - `public/sw.js` provides the small network-first offline shell. Increment its cache name when cache behavior changes.
 - `Dockerfile`, `compose.yaml`, and `deploy/nginx.conf` serve the static production app with health and security headers.
 - `Dockerfile.collab` runs the collaboration bundle as a non-root user. Keep browser/build packages in `devDependencies`; its Node runtime requires only `@hocuspocus/server` and `yjs`.
+- The root `wrangler.jsonc` owns the Cloudflare Pages frontend deployment. `cloudflare/wrangler.jsonc` and `cloudflare/worker.js` own the single Cloudflare Container WebSocket gateway; do not expose the Supabase service-role key as a Worker variable or Vite value.
 - `docs/FILE_FORMAT.md`, `docs/USER_GUIDE.md`, and `docs/OPERATIONS.md` define the supported interchange contract and operating procedures; update them with behavioral changes.
 
 ## Invariants
@@ -63,5 +64,7 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 ## Engineering style
 
 Prefer browser APIs and small pure functions. Do not add state management, date, UI, or CSV dependencies unless measured behavior proves the native implementation insufficient. Accessibility, import validation, error handling that prevents data loss, and authorization boundaries are not optional simplifications. The scheduler test includes a 10,000-task chain guard; keep it linear and under its two-second ceiling.
+
+Preserve the compact productivity-workbench hierarchy: the grid/timeline is the dominant surface, the top bar owns project/file commands, the project toolbar owns task commands, and Details remains an independently scrolling inspector or mobile bottom sheet. Icon-only controls require accessible labels and tooltips.
 
 Keep collaboration monitoring private: Compose binds port 1235 to host loopback, while only the WebSocket port belongs behind the public WSS proxy. CI must retain clean-install, test, both build, audit, Compose validation, and both container-build gates.
