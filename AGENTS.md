@@ -24,6 +24,7 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - `src/scheduler.ts` contains deterministic calendar-aware DAG scheduling, constraints, diagnostics, summaries, slack, and critical-path calculations.
 - `src/scheduler.worker.ts` keeps scheduling work off the UI thread; retain the synchronous scheduler as the tested core and worker-error fallback.
 - `src/schedulePreview.ts` keeps edited rows controlled: plans up to 1,000 tasks receive exact synchronous previews, while larger plans retain mounted rows until the worker finishes.
+- `src/taskReorder.ts` owns subtree-safe row moves. Dragging a parent moves every descendant; dropping inside a task reparents the dragged root.
 - `src/storage.ts` is the browser IndexedDB boundary.
 - `src/io.ts` owns imports and downloads. Validate before persistence and keep spreadsheet formula-injection protection.
 - `src/interchange.ts` owns dependency-free RFC 4180 CSV mapping and core MSPDI conversion. Unsupported MSPDI data must produce warnings rather than invented values.
@@ -53,6 +54,8 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Every task with children is a recursive rollup: its dates, duration, progress, and critical state are derived from descendants and read-only in the grid. Do not add dependencies to hierarchy parents or summary tasks.
 - Indenting changes `parentId` only; never convert a task to a summary implicitly. Consecutive indents create siblings under the same parent.
 - Hierarchy collapse is UI-only and must not mutate project data. Tasks with children use rounded derived-progress group bars and direct parent-to-child arrows on the timeline.
+- Task rows begin immediately below the single 48px header; do not add a second header offset inside `rows-space`. Hierarchy connectors match the destination child's outline hue and depth desaturation.
+- Row drag/drop must preserve subtree membership, reject drops into the dragged subtree, and rewrite task order deterministically.
 - Comment bodies are plain text, capped at 10,000 characters, and removed with their task. Keep rendering free of raw HTML.
 - Keep off-screen task rows unmounted so 10,000-task projects do not create 10,000 DOM rows.
 - Keep same-project task rows mounted during edits. Do not animate bar position or width between stale and current schedules; only a project switch may clear the current schedule.

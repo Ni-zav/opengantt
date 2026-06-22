@@ -19,7 +19,7 @@ import { exportXlsx, importXlsx } from "./xlsx";
 
 const ROW_HEIGHT = 42;
 const DAY_WIDTH = 28;
-const GRID_WIDTH = 590;
+const GRID_WIDTH = 670;
 const collaborationConfigured = Boolean(import.meta.env.VITE_COLLAB_URL);
 
 const dateNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
@@ -114,7 +114,7 @@ export default function App() {
   }, [ordered]);
   const timelineEnd = useMemo(() => addDays(ordered.map(t => t.end).sort().at(-1) ?? isoToday(), 14), [ordered]);
   const timelineDays = Math.max(45, dayDiff(timelineStart, timelineEnd));
-  const firstVisible = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 6);
+  const firstVisible = Math.max(0, Math.floor(Math.max(0, scrollTop - 48) / ROW_HEIGHT) - 6);
   const visible = displayed.slice(firstVisible, firstVisible + 30);
   const scheduledById = useMemo(() => new Map(ordered.map(task => [task.id, task])), [ordered]);
   const displayedIndex = useMemo(() => new Map(displayed.map((task, index) => [task.id, index])), [displayed]);
@@ -124,9 +124,10 @@ export default function App() {
     if (!parent || parentIndex === undefined || childIndex === undefined) return [];
     const parentX = dayDiff(timelineStart, parent.start) * DAY_WIDTH;
     const childX = dayDiff(timelineStart, task.start) * DAY_WIDTH - 5;
+    const childY = childIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
     const bendX = Math.max(6, Math.min(parentX, childX) - 12);
-    return [{ id: `${parent.id}-${task.id}`, path: `M ${parentX} ${parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2} H ${bendX} V ${childIndex * ROW_HEIGHT + ROW_HEIGHT / 2} H ${childX}` }];
-  }), [displayedIndex, scheduledById, timelineStart, visible]);
+    return [{ id: `${parent.id}-${task.id}`, color: outlineFor(task), path: `M ${parentX} ${parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2} H ${bendX} V ${childY} H ${childX}`, arrow: `M ${childX} ${childY} L ${childX - 8} ${childY - 4} L ${childX - 8} ${childY + 4} Z` }];
+  }), [displayedIndex, scheduledById, taskById, timelineStart, visible]);
   const selected = project?.tasks.find(task => task.id === selectedId);
   const activeCloud = project ? cloudProjects[project.id] : undefined;
   const readOnly = activeCloud?.role === "viewer";
@@ -277,6 +278,17 @@ export default function App() {
     return depth;
   }
 
+  function outlineFor(task: Task) {
+    let root = task;
+    const seen = new Set<string>();
+    while (root.parentId && !seen.has(root.id)) {
+      seen.add(root.id);
+      root = taskById.get(root.parentId) ?? root;
+    }
+    const hue = [...root.id].reduce((value, character) => (value * 31 + character.charCodeAt(0)) % 360, 0);
+    return `hsl(${hue} ${Math.max(30, 72 - depthFor(task) * 11)}% 55%)`;
+  }
+
   function toggleCollapsed(id: string) {
     setCollapsedIds(current => {
       const next = new Set(current);
@@ -321,7 +333,7 @@ export default function App() {
     if (row < 0 || row >= displayed.length || column < 0 || column > 3) return;
     const focus = () => workbenchRef.current?.querySelector<HTMLElement>(`[data-grid-row="${displayed[row].id}"][data-grid-col="${column}"]`)?.focus();
     if (!workbenchRef.current?.querySelector(`[data-grid-row="${displayed[row].id}"]`)) {
-      workbenchRef.current?.scrollTo({ top: row * ROW_HEIGHT });
+      workbenchRef.current?.scrollTo({ top: 48 + row * ROW_HEIGHT });
       setTimeout(focus);
     } else focus();
   }
@@ -501,7 +513,7 @@ export default function App() {
       {showWelcome && <section className="welcome-banner"><Info size={19} weight="fill" /><div><strong>Your plans stay on this device</strong><span>Add tasks or import a file. Sign in only when you want cloud sharing.</span></div><button onClick={() => { localStorage.setItem("opengantt.welcome.dismissed", "true"); setShowWelcome(false); }}>Got it</button></section>}
 
       {scheduleResult?.diagnostics.length ? <div className="diagnostics" role="status"><WarningCircle size={17} weight="fill" /><span><b>{scheduleResult.diagnostics.length} schedule issue{scheduleResult.diagnostics.length === 1 ? "" : "s"}</b>{scheduleResult.diagnostics[0].message}</span></div> : null}
-      <main ref={workbenchRef} id="workbench" className={`workbench mobile-${mobileView}`} role="grid" aria-label="Project tasks and timeline" aria-rowcount={displayed.length + 1} aria-colcount={4} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
+      <main ref={workbenchRef} id="workbench" className={`workbench mobile-${mobileView}`} role="grid" aria-label="Project tasks and timeline" aria-rowcount={displayed.length + 1 + (displayed.length ? 1 : 0)} aria-colcount={4} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
         <div className="table-head" role="row" aria-rowindex={1} style={{ width: GRID_WIDTH }}>
           <span role="columnheader">Task</span><span role="columnheader">Start</span><span role="columnheader">Days</span><span role="columnheader">Progress</span>
         </div>
@@ -511,14 +523,13 @@ export default function App() {
             return <span className={date.endsWith("-01") ? "month" : ""} key={date} style={{ left: index * DAY_WIDTH }}>{new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}</span>;
           })}
         </div>
-        <div className="rows-space" style={{ height: displayed.length * ROW_HEIGHT + 48, width: GRID_WIDTH + timelineDays * DAY_WIDTH }}>
-          <svg className="hierarchy-links" aria-hidden="true" style={{ left: GRID_WIDTH, top: 48, width: timelineDays * DAY_WIDTH, height: displayed.length * ROW_HEIGHT }}>
-            <defs><marker id="hierarchy-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" /></marker></defs>
-            {hierarchyLinks.map(link => <path key={link.id} d={link.path} markerEnd="url(#hierarchy-arrow)" />)}
+        <div className="rows-space" style={{ height: displayed.length * ROW_HEIGHT + (displayed.length ? ROW_HEIGHT : 0), width: GRID_WIDTH + timelineDays * DAY_WIDTH }}>
+          <svg className="hierarchy-links" aria-hidden="true" style={{ left: GRID_WIDTH, top: 0, width: timelineDays * DAY_WIDTH, height: displayed.length * ROW_HEIGHT }}>
+            {hierarchyLinks.map(link => <g key={link.id}><path className="hierarchy-line" d={link.path} style={{ stroke: link.color }} /><path className="hierarchy-arrow" d={link.arrow} style={{ fill: link.color }} /></g>)}
           </svg>
           {visible.map((task, localIndex) => {
             const index = firstVisible + localIndex;
-            const top = 48 + index * ROW_HEIGHT;
+            const top = index * ROW_HEIGHT;
             const left = dayDiff(timelineStart, task.start) * DAY_WIDTH;
             const width = Math.max(task.type === "milestone" ? 12 : DAY_WIDTH, Math.max(1, dayDiff(task.start, task.end) + 1) * DAY_WIDTH);
             const hasChildren = parentIds.has(task.id);
@@ -536,12 +547,13 @@ export default function App() {
                 <div className="progress-cell" title={hasChildren ? "Calculated from child tasks" : undefined}><input role="gridcell" data-grid-row={task.id} data-grid-col="3" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Progress for ${task.name}`} type="range" min="0" max="100" value={task.progress} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 3)} onChange={e => updateTask(task.id, { progress: Number(e.target.value) })} /><span>{task.progress}%</span></div>
               </div>
               <div className="timeline-row" style={{ left: GRID_WIDTH, width: timelineDays * DAY_WIDTH }}>
-                <div className={`bar ${task.critical ? "critical" : ""} ${task.invalid ? "invalid" : ""} ${hasChildren ? "group" : task.type}`} title={`${task.name}: ${task.start} – ${task.end}`} style={{ left, width }}>
+                <div className={`bar ${task.critical ? "critical" : ""} ${task.invalid ? "invalid" : ""} ${hasChildren ? "group" : task.type}`} title={`${task.name}: ${task.start} – ${task.end}`} style={{ left, width, borderColor: task.invalid ? undefined : outlineFor(task) }}>
                   {(task.type === "task" || hasChildren) && <i style={{ width: `${task.progress}%` }} />}
                 </div>
               </div>
             </div>;
           })}
+          {displayed.length ? <div className="bottom-add-row" role="row" aria-rowindex={displayed.length + 2} style={{ top: displayed.length * ROW_HEIGHT, width: GRID_WIDTH }}><button disabled={readOnly} onClick={addTask}><Plus size={15} />Add task</button></div> : null}
         </div>
         {!ordered.length && <div className="empty-state"><span className="empty-state-icon"><RowsPlusBottom size={25} /></span><strong>Start with your first task</strong><p>Build a plan from scratch or bring in an existing OpenGantt, Excel, CSV, or Project file.</p><div><button className="primary" disabled={readOnly} onClick={addTask}><Plus size={16} />Add task</button><button onClick={() => fileInput.current?.click()}><FolderOpen size={16} />Import file</button></div></div>}
       </main>
