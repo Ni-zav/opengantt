@@ -173,6 +173,10 @@ kbd {
 .progress-cell { display: grid; grid-template-columns: minmax(0, 1fr) 35px; align-items: center; padding: 0 8px; border-right: 1px solid var(--line); color: var(--muted); font-size: 9px; font-variant-numeric: tabular-nums; }
 .progress-cell input { min-width: 0; accent-color: var(--accent); }
 .timeline-row { position: absolute; height: var(--row-height); background-image: repeating-linear-gradient(90deg, transparent 0 27px, color-mix(in srgb, var(--line) 46%, transparent) 27px 28px); }
+.hierarchy-links { position: absolute; z-index: 4; overflow: visible; pointer-events: none; }
+.hierarchy-links > path { fill: none; stroke: color-mix(in srgb, var(--accent) 72%, var(--muted)); stroke-width: 1.5; }
+.hierarchy-links marker path { fill: color-mix(in srgb, var(--accent) 72%, var(--muted)); }
+.group-row .task-cells > input:disabled, .group-row .progress-cell input:disabled { opacity: .62; cursor: not-allowed; }
 .bar { position: absolute; top: 11px; height: 20px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--accent) 24%, var(--surface)); box-shadow: 0 1px 2px rgb(20 53 41 / .12); transition: left 180ms ease, width 180ms ease, transform 100ms ease; }
 .bar:hover { transform: translateY(-1px); }
 .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #299878); opacity: .92; }

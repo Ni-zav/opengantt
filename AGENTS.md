@@ -50,9 +50,9 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Dependency and hierarchy cycles are preserved and every participating task is visibly marked invalid; never fix them by deleting user data.
 - Finish-to-start dependencies begin on the next working day after predecessor completion, plus lag. Preserve the distinct FS, SS, FF, and SF semantics.
 - Manual tasks and must-start/must-finish constraints stay fixed; report conflicts instead of silently moving them.
-- Summary dates and progress are derived from descendants. Do not add dependencies to summary tasks.
+- Every task with children is a recursive rollup: its dates, duration, progress, and critical state are derived from descendants and read-only in the grid. Do not add dependencies to hierarchy parents or summary tasks.
 - Indenting changes `parentId` only; never convert a task to a summary implicitly. Consecutive indents create siblings under the same parent.
-- Hierarchy collapse is UI-only and must not mutate project data. Tasks with children use bracket-style group bars independently of explicit summary scheduling semantics.
+- Hierarchy collapse is UI-only and must not mutate project data. Tasks with children use bracket-style group bars and direct parent-to-child arrows on the timeline.
 - Comment bodies are plain text, capped at 10,000 characters, and removed with their task. Keep rendering free of raw HTML.
 - Keep off-screen task rows unmounted so 10,000-task projects do not create 10,000 DOM rows.
 - Keep same-project task rows mounted during edits. Apply raw task fields optimistically and debounce worker recalculation; only a project switch may clear the current schedule.

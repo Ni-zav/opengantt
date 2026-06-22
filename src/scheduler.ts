@@ -103,7 +103,7 @@ export function schedule(project: Project): ScheduleResult {
     const from = byId.get(dep.from), to = byId.get(dep.to);
     if (!from || !to || dep.from === dep.to) continue;
     if (rollupIds.has(from.id) || rollupIds.has(to.id)) {
-      diagnostics.push({ code: "summary-dependency", taskIds: [dep.from, dep.to], message: "Dependencies cannot connect summary tasks." });
+      diagnostics.push({ code: "summary-dependency", taskIds: [dep.from, dep.to], message: "Dependencies cannot connect hierarchy parents or summary tasks." });
       continue;
     }
     incoming.get(dep.to)!.push(dep);

@@ -8,7 +8,7 @@ Open the app and edit the sample or choose **New**. Projects autosave to this br
 
 1. Select **Add task**.
 2. Enter the task name, start date, working-day duration, and progress.
-3. Enable **Advanced** to indent tasks, add dependency types and lags, select calendars, lock manual dates, or add constraints.
+3. Enable **Advanced** to indent tasks, add dependency types and lags, select calendars, lock manual dates, or add constraints. A task with children becomes a recursive rollup: its dates, duration, progress, and critical state come from its descendants. Use its caret to collapse or expand the branch; timeline arrows show each direct parent-child relationship.
 4. Red bars identify the critical path. The issue banner explains cycles, locked-date conflicts, non-working starts, and invalid summary links.
 5. Open **Details** for comments and calendar exceptions.
 

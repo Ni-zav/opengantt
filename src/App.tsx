@@ -113,6 +113,17 @@ export default function App() {
   const timelineDays = Math.max(45, dayDiff(timelineStart, timelineEnd));
   const firstVisible = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 6);
   const visible = displayed.slice(firstVisible, firstVisible + 30);
+  const scheduledById = useMemo(() => new Map(ordered.map(task => [task.id, task])), [ordered]);
+  const displayedIndex = useMemo(() => new Map(displayed.map((task, index) => [task.id, index])), [displayed]);
+  const hierarchyLinks = useMemo(() => visible.flatMap(task => {
+    if (!task.parentId) return [];
+    const parent = scheduledById.get(task.parentId), parentIndex = displayedIndex.get(task.parentId), childIndex = displayedIndex.get(task.id);
+    if (!parent || parentIndex === undefined || childIndex === undefined) return [];
+    const parentX = dayDiff(timelineStart, parent.start) * DAY_WIDTH;
+    const childX = dayDiff(timelineStart, task.start) * DAY_WIDTH - 5;
+    const bendX = Math.max(6, Math.min(parentX, childX) - 12);
+    return [{ id: `${parent.id}-${task.id}`, path: `M ${parentX} ${parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2} H ${bendX} V ${childIndex * ROW_HEIGHT + ROW_HEIGHT / 2} H ${childX}` }];
+  }), [displayedIndex, scheduledById, timelineStart, visible]);
   const selected = project?.tasks.find(task => task.id === selectedId);
   const activeCloud = project ? cloudProjects[project.id] : undefined;
   const readOnly = activeCloud?.role === "viewer";
@@ -466,6 +477,10 @@ export default function App() {
           })}
         </div>
         <div className="rows-space" style={{ height: displayed.length * ROW_HEIGHT + 48, width: GRID_WIDTH + timelineDays * DAY_WIDTH }}>
+          <svg className="hierarchy-links" aria-hidden="true" style={{ left: GRID_WIDTH, top: 48, width: timelineDays * DAY_WIDTH, height: displayed.length * ROW_HEIGHT }}>
+            <defs><marker id="hierarchy-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" /></marker></defs>
+            {hierarchyLinks.map(link => <path key={link.id} d={link.path} markerEnd="url(#hierarchy-arrow)" />)}
+          </svg>
           {visible.map((task, localIndex) => {
             const index = firstVisible + localIndex;
             const top = 48 + index * ROW_HEIGHT;
@@ -473,15 +488,15 @@ export default function App() {
             const width = Math.max(task.type === "milestone" ? 12 : DAY_WIDTH, Math.max(1, dayDiff(task.start, task.end) + 1) * DAY_WIDTH);
             const hasChildren = parentIds.has(task.id);
             const remoteSelector = collaborators.find(person => person.selection?.taskId === task.id && person.user.id !== cloudSession?.user.id);
-            return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} title={remoteSelector ? `${remoteSelector.user.name} is selecting this task` : undefined} className={`task-row ${selectedId === task.id ? "selected" : ""} ${remoteSelector ? "remote-selected" : ""}`} key={task.id} style={{ top, ...(remoteSelector ? { boxShadow: `inset 3px 0 ${remoteSelector.user.color}` } : {}) }} onClick={() => setSelectedId(task.id)}>
+            return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} title={remoteSelector ? `${remoteSelector.user.name} is selecting this task` : undefined} className={`task-row ${hasChildren ? "group-row" : ""} ${selectedId === task.id ? "selected" : ""} ${remoteSelector ? "remote-selected" : ""}`} key={task.id} style={{ top, ...(remoteSelector ? { boxShadow: `inset 3px 0 ${remoteSelector.user.color}` } : {}) }} onClick={() => setSelectedId(task.id)}>
               <div className="task-cells" style={{ width: GRID_WIDTH }}>
                 <div className="task-name-cell" style={{ paddingLeft: 10 + depthFor(task) * 18 }}>
                   {hasChildren ? <button type="button" className="hierarchy-toggle" aria-label={`${collapsedIds.has(task.id) ? "Expand" : "Collapse"} ${task.name}`} aria-expanded={!collapsedIds.has(task.id)} onClick={event => { event.stopPropagation(); toggleCollapsed(task.id); }}>{collapsedIds.has(task.id) ? <CaretRight aria-hidden="true" /> : <CaretDown aria-hidden="true" />}</button> : task.parentId ? <ArrowBendDownRight className="hierarchy-branch" aria-hidden="true" /> : <span className="hierarchy-spacer" />}
                   <input role="gridcell" data-grid-row={task.id} data-grid-col="0" disabled={readOnly} aria-label={`Task name row ${index + 1}`} style={{ fontWeight: hasChildren ? 700 : 400 }} value={task.name} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 0)} onChange={e => updateTask(task.id, { name: e.target.value })} />
                 </div>
-                <input role="gridcell" data-grid-row={task.id} data-grid-col="1" disabled={readOnly} aria-label={`Start date for ${task.name}`} type="date" value={task.start} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 1)} onChange={e => updateTask(task.id, { start: e.target.value })} />
-                <input role="gridcell" data-grid-row={task.id} data-grid-col="2" disabled={readOnly} aria-label={`Duration for ${task.name}`} type="number" min="0" value={task.duration} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 2)} onChange={e => updateTask(task.id, { duration: Math.max(0, Number(e.target.value)) })} />
-                <div className="progress-cell"><input role="gridcell" data-grid-row={task.id} data-grid-col="3" disabled={readOnly} aria-label={`Progress for ${task.name}`} type="range" min="0" max="100" value={task.progress} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 3)} onChange={e => updateTask(task.id, { progress: Number(e.target.value) })} /><span>{task.progress}%</span></div>
+                <input role="gridcell" data-grid-row={task.id} data-grid-col="1" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Start date for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="date" value={task.start} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 1)} onChange={e => updateTask(task.id, { start: e.target.value })} />
+                <input role="gridcell" data-grid-row={task.id} data-grid-col="2" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Duration for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="number" min="0" value={task.duration} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 2)} onChange={e => updateTask(task.id, { duration: Math.max(0, Number(e.target.value)) })} />
+                <div className="progress-cell" title={hasChildren ? "Calculated from child tasks" : undefined}><input role="gridcell" data-grid-row={task.id} data-grid-col="3" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Progress for ${task.name}`} type="range" min="0" max="100" value={task.progress} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 3)} onChange={e => updateTask(task.id, { progress: Number(e.target.value) })} /><span>{task.progress}%</span></div>
               </div>
               <div className="timeline-row" style={{ left: GRID_WIDTH, width: timelineDays * DAY_WIDTH }}>
                 <div className={`bar ${task.critical ? "critical" : ""} ${task.invalid ? "invalid" : ""} ${hasChildren ? "group" : task.type}`} title={`${task.name}: ${task.start} – ${task.end}`} style={{ left, width }}>
