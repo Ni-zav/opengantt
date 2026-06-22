@@ -177,7 +177,7 @@ kbd {
 .hierarchy-links > path { fill: none; stroke: color-mix(in srgb, var(--accent) 72%, var(--muted)); stroke-width: 1.5; }
 .hierarchy-links marker path { fill: color-mix(in srgb, var(--accent) 72%, var(--muted)); }
 .group-row .task-cells > input:disabled, .group-row .progress-cell input:disabled { opacity: .62; cursor: not-allowed; }
-.bar { position: absolute; top: 11px; height: 20px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--accent) 24%, var(--surface)); box-shadow: 0 1px 2px rgb(20 53 41 / .12); transition: left 180ms ease, width 180ms ease, transform 100ms ease; }
+.bar { position: absolute; top: 11px; height: 20px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--accent) 24%, var(--surface)); box-shadow: 0 1px 2px rgb(20 53 41 / .12); transition: transform 100ms ease; }
 .bar:hover { transform: translateY(-1px); }
 .bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), #299878); opacity: .92; }
 .bar.critical { border-color: #de9a98; background: var(--critical-soft); }
@@ -187,11 +187,9 @@ kbd {
 .bar.invalid { border-color: var(--critical); background: repeating-linear-gradient(45deg, var(--critical) 0 5px, var(--surface) 5px 10px); }
 .bar.milestone { top: 14px; width: 14px !important; height: 14px; border: 0; border-radius: 3px; background: var(--accent); transform: rotate(45deg); }
 .bar.milestone:hover { transform: rotate(45deg) translate(-1px, -1px); }
-.bar.group { --group-color: var(--accent); top: 15px; height: 10px; overflow: visible; border: 0; border-top: 3px solid var(--group-color); border-radius: 0; background: transparent; box-shadow: none; }
-.bar.group::before, .bar.group::after { position: absolute; top: -3px; width: 3px; height: 9px; border-radius: 0 0 2px 2px; background: var(--group-color); content: ""; }
-.bar.group::before { left: 0; }
-.bar.group::after { right: 0; }
-.bar.group.critical, .bar.group.invalid { --group-color: var(--critical); }
+.bar.group { top: 10px; height: 22px; border-width: 2px; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, var(--surface)); box-shadow: 0 1px 3px rgb(20 53 41 / .16); }
+.bar.group.critical { border-color: var(--critical); background: var(--critical-soft); }
+.bar.group.invalid { border-color: var(--critical); }
 .empty-state { position: sticky; left: 50%; display: grid; width: min(430px, calc(100vw - 48px)); justify-items: center; margin-top: 50px; padding: 28px; transform: translateX(-50%); color: var(--muted); text-align: center; animation: reveal-up 240ms ease both; }
 .empty-state-icon { display: grid; width: 48px; height: 48px; margin-bottom: 13px; place-items: center; border: 1px solid var(--accent-line); border-radius: 14px; background: var(--accent-soft); color: var(--accent); }
 .empty-state strong { color: var(--text); font-size: 15px; }

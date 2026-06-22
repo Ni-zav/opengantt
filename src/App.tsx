@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowBendDownRight, ArrowClockwise, ArrowCounterClockwise, ArrowLineLeft, ArrowLineRight, BracketsCurly, CaretDown, CaretRight,
-  ChartBarHorizontal, CircleNotch, Command, DownloadSimple, FileCsv, FileXls, FolderOpen, Info,
+  ChartBarHorizontal, CircleNotch, Command, DotsSixVertical, DownloadSimple, FileCsv, FileXls, FolderOpen, Info,
   LinkSimple, ListBullets, MagnifyingGlass, Plus, Rows, RowsPlusBottom, SidebarSimple, SlidersHorizontal,
   Trash, UploadSimple, WarningCircle, X
 } from "@phosphor-icons/react";
@@ -9,6 +9,7 @@ import { exportCsv, exportOpenGantt, exportProjectXml, importOpenGantt } from ".
 import { createTask, isoToday, sampleProject, uid, type DependencyType, type Project, type Task } from "./model";
 import { schedule, type ScheduleResult } from "./scheduler";
 import { previewSchedule } from "./schedulePreview";
+import { moveTasks, type DropPlacement } from "./taskReorder";
 import { deleteProject, loadProjects, saveProject } from "./storage";
 import CloudPanel from "./CloudPanel";
 import { saveCloudProject, type CloudProject, type CloudSession } from "./cloud";
@@ -49,6 +50,8 @@ export default function App() {
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [showWelcome, setShowWelcome] = useState(() => localStorage.getItem("opengantt.welcome.dismissed") !== "true");
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
+  const [draggedId, setDraggedId] = useState("");
+  const [dropTarget, setDropTarget] = useState<{ id: string; placement: DropPlacement } | null>(null);
   const undoStack = useRef<Project[]>([]);
   const redoStack = useRef<Project[]>([]);
   const workbenchRef = useRef<HTMLElement>(null);
@@ -85,7 +88,7 @@ export default function App() {
       worker.onmessage = (event: MessageEvent<ScheduleResult>) => setScheduleResult(event.data);
       worker.onerror = () => setScheduleResult(schedule(project));
       worker.postMessage(project);
-    }, 50);
+    }, 16);
     return () => {
       window.clearTimeout(timeout);
       worker?.terminate();
@@ -280,6 +283,38 @@ export default function App() {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  }
+
+  function dragPlacement(event: React.DragEvent<HTMLDivElement>, task: Task): DropPlacement {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    if (x < 250 && x > 52 + depthFor(task) * 18) return "inside";
+    return event.clientY - bounds.top < bounds.height / 2 ? "before" : "after";
+  }
+
+  function dragOver(event: React.DragEvent<HTMLDivElement>, task: Task) {
+    if (!draggedId || draggedId === task.id || readOnly) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    const next = { id: task.id, placement: dragPlacement(event, task) };
+    setDropTarget(current => current?.id === next.id && current.placement === next.placement ? current : next);
+  }
+
+  function dropTask(event: React.DragEvent<HTMLDivElement>, task: Task) {
+    event.preventDefault();
+    if (!draggedId || readOnly) return;
+    let parent: Task | undefined = task;
+    const seen = new Set<string>();
+    while (parent && !seen.has(parent.id)) {
+      if (parent.id === draggedId) { setDropTarget(null); return; }
+      seen.add(parent.id);
+      parent = parent.parentId ? taskById.get(parent.parentId) : undefined;
+    }
+    const placement = dragPlacement(event, task);
+    commit(draft => { draft.tasks = moveTasks(draft.tasks, draggedId, task.id, placement); });
+    setSelectedId(draggedId);
+    setDraggedId("");
+    setDropTarget(null);
   }
 
   function focusGridCell(row: number, column: number) {
@@ -488,19 +523,21 @@ export default function App() {
             const width = Math.max(task.type === "milestone" ? 12 : DAY_WIDTH, Math.max(1, dayDiff(task.start, task.end) + 1) * DAY_WIDTH);
             const hasChildren = parentIds.has(task.id);
             const remoteSelector = collaborators.find(person => person.selection?.taskId === task.id && person.user.id !== cloudSession?.user.id);
-            return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} title={remoteSelector ? `${remoteSelector.user.name} is selecting this task` : undefined} className={`task-row ${hasChildren ? "group-row" : ""} ${selectedId === task.id ? "selected" : ""} ${remoteSelector ? "remote-selected" : ""}`} key={task.id} style={{ top, ...(remoteSelector ? { boxShadow: `inset 3px 0 ${remoteSelector.user.color}` } : {}) }} onClick={() => setSelectedId(task.id)}>
+            const placement = dropTarget?.id === task.id ? dropTarget.placement : "";
+            return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} title={remoteSelector ? `${remoteSelector.user.name} is selecting this task` : undefined} className={`task-row ${hasChildren ? "group-row" : ""} ${selectedId === task.id ? "selected" : ""} ${draggedId === task.id ? "dragging" : ""} ${placement ? `drop-${placement}` : ""} ${remoteSelector ? "remote-selected" : ""}`} key={task.id} style={{ top, ...(remoteSelector ? { boxShadow: `inset 3px 0 ${remoteSelector.user.color}` } : {}) }} onClick={() => setSelectedId(task.id)} onDragOver={event => dragOver(event, task)} onDrop={event => dropTask(event, task)} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null); }}>
               <div className="task-cells" style={{ width: GRID_WIDTH }}>
                 <div className="task-name-cell" style={{ paddingLeft: 10 + depthFor(task) * 18 }}>
+                  <button type="button" className="drag-handle" draggable={!readOnly} disabled={readOnly} aria-label={`Move ${task.name}`} title="Drag to reorder; move right over a task to indent" onClick={event => event.stopPropagation()} onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", task.id); setSelectedId(task.id); setDraggedId(task.id); }} onDragEnd={() => { setDraggedId(""); setDropTarget(null); }}><DotsSixVertical aria-hidden="true" /></button>
                   {hasChildren ? <button type="button" className="hierarchy-toggle" aria-label={`${collapsedIds.has(task.id) ? "Expand" : "Collapse"} ${task.name}`} aria-expanded={!collapsedIds.has(task.id)} onClick={event => { event.stopPropagation(); toggleCollapsed(task.id); }}>{collapsedIds.has(task.id) ? <CaretRight aria-hidden="true" /> : <CaretDown aria-hidden="true" />}</button> : task.parentId ? <ArrowBendDownRight className="hierarchy-branch" aria-hidden="true" /> : <span className="hierarchy-spacer" />}
                   <input role="gridcell" data-grid-row={task.id} data-grid-col="0" disabled={readOnly} aria-label={`Task name row ${index + 1}`} style={{ fontWeight: hasChildren ? 700 : 400 }} value={task.name} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 0)} onChange={e => updateTask(task.id, { name: e.target.value })} />
                 </div>
                 <input role="gridcell" data-grid-row={task.id} data-grid-col="1" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Start date for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="date" value={task.start} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 1)} onChange={e => updateTask(task.id, { start: e.target.value })} />
-                <input role="gridcell" data-grid-row={task.id} data-grid-col="2" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Duration for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="number" min="0" value={task.duration} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 2)} onChange={e => updateTask(task.id, { duration: Math.max(0, Number(e.target.value)) })} />
+                <input role="gridcell" data-grid-row={task.id} data-grid-col="2" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Duration for ${task.name}`} title={hasChildren ? "Calculated from child tasks" : undefined} type="number" min="0" value={task.duration} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 2)} onChange={e => { const duration = Math.max(0, Number(e.target.value)); updateTask(task.id, { duration, type: task.type === "milestone" && duration > 0 ? "task" : task.type }); }} />
                 <div className="progress-cell" title={hasChildren ? "Calculated from child tasks" : undefined}><input role="gridcell" data-grid-row={task.id} data-grid-col="3" disabled={readOnly || hasChildren} aria-label={`${hasChildren ? "Calculated " : ""}Progress for ${task.name}`} type="range" min="0" max="100" value={task.progress} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 3)} onChange={e => updateTask(task.id, { progress: Number(e.target.value) })} /><span>{task.progress}%</span></div>
               </div>
               <div className="timeline-row" style={{ left: GRID_WIDTH, width: timelineDays * DAY_WIDTH }}>
                 <div className={`bar ${task.critical ? "critical" : ""} ${task.invalid ? "invalid" : ""} ${hasChildren ? "group" : task.type}`} title={`${task.name}: ${task.start} – ${task.end}`} style={{ left, width }}>
-                  {task.type === "task" && !hasChildren && <i style={{ width: `${task.progress}%` }} />}
+                  {(task.type === "task" || hasChildren) && <i style={{ width: `${task.progress}%` }} />}
                 </div>
               </div>
             </div>;

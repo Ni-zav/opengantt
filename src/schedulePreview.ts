@@ -1,7 +1,9 @@
 import type { Project } from "./model";
-import type { ScheduleResult } from "./scheduler";
+import { schedule, type ScheduleResult } from "./scheduler";
 
 export function previewSchedule(current: ScheduleResult | null, project: Project): ScheduleResult | null {
+  // ponytail: exact previews stay cheap at this size; the worker handles larger plans.
+  if (project.tasks.length <= 1_000) return schedule(project);
   if (!current) return null;
   const scheduled = new Map(current.tasks.map(task => [task.id, task]));
   const rollupIds = new Set(project.tasks.map(task => task.parentId).filter((id): id is string => Boolean(id)));

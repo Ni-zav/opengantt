@@ -16,7 +16,7 @@ describe("schedule preview", () => {
     expect(preview.tasks).toHaveLength(next.tasks.length);
     expect(preview.tasks[0].name).toBe("Edited immediately");
     expect(preview.tasks[0].duration).toBe(20);
-    expect(preview.tasks[0].end).toBe(current.tasks[0].end);
+    expect(preview.tasks[0].end).toBe(schedule(next).tasks[0].end);
   });
 
   it("does not flash stored values over a computed summary", () => {
@@ -28,8 +28,9 @@ describe("schedule preview", () => {
 
     const preview = previewSchedule(current, next)!;
 
-    expect(preview.tasks[0].start).toBe(current.tasks[0].start);
-    expect(preview.tasks[0].duration).toBe(current.tasks[0].duration);
-    expect(preview.tasks[0].progress).toBe(current.tasks[0].progress);
+    const expected = schedule(next).tasks[0];
+    expect(preview.tasks[0].start).toBe(expected.start);
+    expect(preview.tasks[0].duration).toBe(expected.duration);
+    expect(preview.tasks[0].progress).toBe(expected.progress);
   });
 });
