@@ -56,6 +56,18 @@ describe("scheduler", () => {
     expect(result.progress).toBe(25);
   });
 
+  it("recursively rolls child tasks into every hierarchy parent", () => {
+    const root = task("root"), group = task("group"), nestedDone = task("nested-done", "2026-06-19", 1);
+    const nestedTodo = task("nested-todo", "2026-06-22", 3), directDone = task("direct-done", "2026-06-25", 2);
+    group.parentId = root.id; nestedDone.parentId = group.id; nestedTodo.parentId = group.id; directDone.parentId = root.id;
+    nestedDone.progress = 100; directDone.progress = 100;
+
+    const result = new Map(schedule(project([root, group, nestedDone, nestedTodo, directDone])).tasks.map(item => [item.id, item]));
+
+    expect(result.get("group")).toMatchObject({ start: "2026-06-19", end: "2026-06-24", duration: 4, progress: 25 });
+    expect(result.get("root")).toMatchObject({ start: "2026-06-19", end: "2026-06-26", duration: 6, progress: 50 });
+  });
+
   it("marks every task in a hierarchy cycle invalid", () => {
     const first = task("first"), second = task("second"), third = task("third");
     first.parentId = third.id; second.parentId = first.id; third.parentId = second.id;

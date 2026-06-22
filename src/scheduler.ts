@@ -92,6 +92,9 @@ export function schedule(project: Project): ScheduleResult {
   const defaultCalendar = calendars.get(project.defaultCalendarId) ?? project.calendars[0];
   const calendarFor = (task: Task) => calendars.get(task.calendarId) ?? defaultCalendar;
   const diagnostics: ScheduleDiagnostic[] = [];
+  const children = new Map(tasks.map(task => [task.id, [] as string[]]));
+  for (const task of tasks) if (task.parentId && children.has(task.parentId)) children.get(task.parentId)!.push(task.id);
+  const rollupIds = new Set(tasks.filter(task => task.type === "summary" || children.get(task.id)!.length).map(task => task.id));
   const incoming = new Map(tasks.map(task => [task.id, [] as Dependency[]]));
   const outgoing = new Map(tasks.map(task => [task.id, [] as Dependency[]]));
   const indegree = new Map(tasks.map(task => [task.id, 0]));
@@ -99,7 +102,7 @@ export function schedule(project: Project): ScheduleResult {
   for (const dep of project.dependencies) {
     const from = byId.get(dep.from), to = byId.get(dep.to);
     if (!from || !to || dep.from === dep.to) continue;
-    if (from.type === "summary" || to.type === "summary") {
+    if (rollupIds.has(from.id) || rollupIds.has(to.id)) {
       diagnostics.push({ code: "summary-dependency", taskIds: [dep.from, dep.to], message: "Dependencies cannot connect summary tasks." });
       continue;
     }
@@ -108,7 +111,7 @@ export function schedule(project: Project): ScheduleResult {
     indegree.set(dep.to, indegree.get(dep.to)! + 1);
   }
 
-  const queue = tasks.filter(task => task.type !== "summary" && indegree.get(task.id) === 0).map(task => task.id);
+  const queue = tasks.filter(task => !rollupIds.has(task.id) && indegree.get(task.id) === 0).map(task => task.id);
   const ordered: string[] = [];
   for (let cursor = 0; cursor < queue.length; cursor++) {
     const id = queue[cursor];
@@ -119,7 +122,7 @@ export function schedule(project: Project): ScheduleResult {
     }
   }
   const orderedSet = new Set(ordered);
-  const cyclic = new Set(tasks.filter(task => task.type !== "summary" && !orderedSet.has(task.id)).map(task => task.id));
+  const cyclic = new Set(tasks.filter(task => !rollupIds.has(task.id) && !orderedSet.has(task.id)).map(task => task.id));
   if (cyclic.size) diagnostics.push({ code: "dependency-cycle", taskIds: [...cyclic], message: "Dependency cycle must be removed before these tasks can be scheduled." });
 
   const scheduled = new Map<string, ScheduledTask>();
@@ -211,8 +214,6 @@ export function schedule(project: Project): ScheduleResult {
     task.critical = !task.invalid && task.slack === 0;
   }
 
-  const children = new Map(tasks.map(task => [task.id, [] as string[]]));
-  for (const task of tasks) if (task.parentId && children.has(task.parentId)) children.get(task.parentId)!.push(task.id);
   const summarize = (id: string, visiting = new Set<string>()): ScheduledTask | undefined => {
     if (visiting.has(id)) return undefined;
     const existing = scheduled.get(id);
@@ -230,7 +231,7 @@ export function schedule(project: Project): ScheduleResult {
     scheduled.set(id, result);
     return result;
   };
-  tasks.filter(task => task.type === "summary").forEach(task => summarize(task.id));
+  rollupIds.forEach(id => summarize(id));
 
   const resultTasks = tasks.map(task => scheduled.get(task.id) ?? calculate(task, false));
   return {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowClockwise, ArrowCounterClockwise, ArrowLineLeft, ArrowLineRight, BracketsCurly, CaretDown,
+  ArrowBendDownRight, ArrowClockwise, ArrowCounterClockwise, ArrowLineLeft, ArrowLineRight, BracketsCurly, CaretDown, CaretRight,
   ChartBarHorizontal, CircleNotch, Command, DownloadSimple, FileCsv, FileXls, FolderOpen, Info,
   LinkSimple, ListBullets, MagnifyingGlass, Plus, Rows, RowsPlusBottom, SidebarSimple, SlidersHorizontal,
   Trash, UploadSimple, WarningCircle, X
@@ -8,6 +8,7 @@ import {
 import { exportCsv, exportOpenGantt, exportProjectXml, importOpenGantt } from "./io";
 import { createTask, isoToday, sampleProject, uid, type DependencyType, type Project, type Task } from "./model";
 import { schedule, type ScheduleResult } from "./scheduler";
+import { previewSchedule } from "./schedulePreview";
 import { deleteProject, loadProjects, saveProject } from "./storage";
 import CloudPanel from "./CloudPanel";
 import { saveCloudProject, type CloudProject, type CloudSession } from "./cloud";
@@ -47,9 +48,11 @@ export default function App() {
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
   const [showWelcome, setShowWelcome] = useState(() => localStorage.getItem("opengantt.welcome.dismissed") !== "true");
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set());
   const undoStack = useRef<Project[]>([]);
   const redoStack = useRef<Project[]>([]);
   const workbenchRef = useRef<HTMLElement>(null);
+  const scheduledProjectId = useRef("");
   const collaboration = useRef<CollaborationBinding | null>(null);
   const [collaborationStatus, setCollaborationStatus] = useState<"offline" | "connecting" | "connected" | "synced" | "error">("offline");
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -72,15 +75,36 @@ export default function App() {
   const project = projects.find(item => item.id === activeId);
   useEffect(() => {
     if (!project) return;
-    setScheduleResult(null);
-    const worker = new Worker(new URL("./scheduler.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (event: MessageEvent<ScheduleResult>) => setScheduleResult(event.data);
-    worker.onerror = () => setScheduleResult(schedule(project));
-    worker.postMessage(project);
-    return () => worker.terminate();
+    if (scheduledProjectId.current !== project.id) {
+      scheduledProjectId.current = project.id;
+      setScheduleResult(null);
+    }
+    let worker: Worker | undefined;
+    const timeout = window.setTimeout(() => {
+      worker = new Worker(new URL("./scheduler.worker.ts", import.meta.url), { type: "module" });
+      worker.onmessage = (event: MessageEvent<ScheduleResult>) => setScheduleResult(event.data);
+      worker.onerror = () => setScheduleResult(schedule(project));
+      worker.postMessage(project);
+    }, 50);
+    return () => {
+      window.clearTimeout(timeout);
+      worker?.terminate();
+    };
   }, [project]);
   const scheduled = scheduleResult?.tasks ?? [];
   const ordered = useMemo(() => [...scheduled].sort((a, b) => a.order - b.order), [scheduled]);
+  const taskById = useMemo(() => new Map(project?.tasks.map(task => [task.id, task]) ?? []), [project?.tasks]);
+  const parentIds = useMemo(() => new Set(project?.tasks.map(task => task.parentId).filter((id): id is string => Boolean(id)) ?? []), [project?.tasks]);
+  const displayed = useMemo(() => collapsedIds.size ? ordered.filter(task => {
+    let parentId = task.parentId;
+    const seen = new Set<string>();
+    while (parentId && !seen.has(parentId)) {
+      if (collapsedIds.has(parentId)) return false;
+      seen.add(parentId);
+      parentId = taskById.get(parentId)?.parentId ?? null;
+    }
+    return true;
+  }) : ordered, [collapsedIds, ordered, taskById]);
   const timelineStart = useMemo(() => {
     const first = ordered.map(t => t.start).sort()[0] ?? isoToday();
     return addDays(first, -3);
@@ -88,11 +112,13 @@ export default function App() {
   const timelineEnd = useMemo(() => addDays(ordered.map(t => t.end).sort().at(-1) ?? isoToday(), 14), [ordered]);
   const timelineDays = Math.max(45, dayDiff(timelineStart, timelineEnd));
   const firstVisible = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 6);
-  const visible = ordered.slice(firstVisible, firstVisible + 30);
+  const visible = displayed.slice(firstVisible, firstVisible + 30);
   const selected = project?.tasks.find(task => task.id === selectedId);
   const activeCloud = project ? cloudProjects[project.id] : undefined;
   const readOnly = activeCloud?.role === "viewer";
   const collaborationToken = activeCloud?.shareSlug ? `public:${activeCloud.shareSlug}` : cloudSession?.accessToken ?? "";
+
+  useEffect(() => setCollapsedIds(new Set()), [activeId]);
 
   useEffect(() => {
     if (!project || !activeCloud || !collaborationToken || !collaborationConfigured) return;
@@ -144,14 +170,14 @@ export default function App() {
     const draft = structuredClone(project);
     change(draft);
     draft.updatedAt = new Date().toISOString();
+    setScheduleResult(current => previewSchedule(current, draft));
     setProjects(current => current.map(item => item.id === draft.id ? draft : item));
-    setSaveState("Saving…");
     saveProject(draft).then(() => setSaveState("Saved locally"), () => setSaveState("Save failed"));
   }
 
   function restore(next: Project) {
+    setScheduleResult(current => previewSchedule(current, next));
     setProjects(current => current.map(item => item.id === next.id ? next : item));
-    setSaveState("Saving…");
     saveProject(next).then(() => setSaveState(activeCloud ? "Syncing…" : "Saved locally"));
   }
 
@@ -192,9 +218,9 @@ export default function App() {
   }
 
   function linkPrevious() {
-    const index = ordered.findIndex(task => task.id === selectedId);
+    const index = displayed.findIndex(task => task.id === selectedId);
     if (index < 1 || !project) return;
-    const from = ordered[index - 1].id;
+    const from = displayed[index - 1].id;
     if (project.dependencies.some(dep => dep.from === from && dep.to === selectedId)) return;
     commit(draft => draft.dependencies.push({ id: uid(), from, to: selectedId, type: "FS", lag: 0 }));
   }
@@ -206,13 +232,19 @@ export default function App() {
   }
 
   function indentSelected() {
-    const index = ordered.findIndex(task => task.id === selectedId);
+    const index = displayed.findIndex(task => task.id === selectedId);
     if (index < 1) return;
-    const parentId = ordered[index - 1].id;
+    const previous = displayed[index - 1];
+    const selectedDepth = depthFor(displayed[index]);
+    let parent: Task = previous;
+    while (depthFor(parent) > selectedDepth && parent.parentId) parent = taskById.get(parent.parentId) ?? parent;
+    const repairsLegacyChain = displayed[index].parentId === previous.id && Boolean(previous.parentId) && previous.type === "summary";
+    const parentId = repairsLegacyChain ? previous.parentId! : parent.id;
     commit(draft => {
-      const parent = draft.tasks.find(task => task.id === parentId)!;
-      parent.type = "summary";
-      draft.tasks.find(task => task.id === selectedId)!.parentId = parentId;
+      const selectedTask = draft.tasks.find(task => task.id === selectedId)!;
+      const previousTask = draft.tasks.find(task => task.id === previous.id)!;
+      if (repairsLegacyChain) previousTask.type = "task";
+      selectedTask.parentId = parentId;
     });
   }
 
@@ -225,16 +257,24 @@ export default function App() {
   function depthFor(task: Task) {
     let depth = 0, parent = task.parentId;
     const seen = new Set<string>();
-    while (parent && !seen.has(parent) && depth < 8) {
-      seen.add(parent); depth++; parent = project!.tasks.find(item => item.id === parent)?.parentId ?? null;
+    while (parent && !seen.has(parent)) {
+      seen.add(parent); depth++; parent = taskById.get(parent)?.parentId ?? null;
     }
     return depth;
   }
 
+  function toggleCollapsed(id: string) {
+    setCollapsedIds(current => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   function focusGridCell(row: number, column: number) {
-    if (row < 0 || row >= ordered.length || column < 0 || column > 3) return;
-    const focus = () => workbenchRef.current?.querySelector<HTMLElement>(`[data-grid-row="${ordered[row].id}"][data-grid-col="${column}"]`)?.focus();
-    if (!workbenchRef.current?.querySelector(`[data-grid-row="${ordered[row].id}"]`)) {
+    if (row < 0 || row >= displayed.length || column < 0 || column > 3) return;
+    const focus = () => workbenchRef.current?.querySelector<HTMLElement>(`[data-grid-row="${displayed[row].id}"][data-grid-col="${column}"]`)?.focus();
+    if (!workbenchRef.current?.querySelector(`[data-grid-row="${displayed[row].id}"]`)) {
       workbenchRef.current?.scrollTo({ top: row * ROW_HEIGHT });
       setTimeout(focus);
     } else focus();
@@ -245,7 +285,7 @@ export default function App() {
     if (event.key === "ArrowUp") nextRow--;
     else if (event.key === "ArrowDown") nextRow++;
     else if (event.key === "Home") { nextColumn = 0; if (event.ctrlKey) nextRow = 0; }
-    else if (event.key === "End") { nextColumn = 3; if (event.ctrlKey) nextRow = ordered.length - 1; }
+    else if (event.key === "End") { nextColumn = 3; if (event.ctrlKey) nextRow = displayed.length - 1; }
     else if (event.key === "ArrowLeft" && (event.currentTarget.selectionStart == null || event.currentTarget.selectionStart === 0)) nextColumn--;
     else if (event.key === "ArrowRight" && (event.currentTarget.selectionEnd == null || event.currentTarget.selectionEnd === event.currentTarget.value.length)) nextColumn++;
     else return;
@@ -415,7 +455,7 @@ export default function App() {
       {showWelcome && <section className="welcome-banner"><Info size={19} weight="fill" /><div><strong>Your plans stay on this device</strong><span>Add tasks or import a file. Sign in only when you want cloud sharing.</span></div><button onClick={() => { localStorage.setItem("opengantt.welcome.dismissed", "true"); setShowWelcome(false); }}>Got it</button></section>}
 
       {scheduleResult?.diagnostics.length ? <div className="diagnostics" role="status"><WarningCircle size={17} weight="fill" /><span><b>{scheduleResult.diagnostics.length} schedule issue{scheduleResult.diagnostics.length === 1 ? "" : "s"}</b>{scheduleResult.diagnostics[0].message}</span></div> : null}
-      <main ref={workbenchRef} id="workbench" className={`workbench mobile-${mobileView}`} role="grid" aria-label="Project tasks and timeline" aria-rowcount={ordered.length + 1} aria-colcount={4} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
+      <main ref={workbenchRef} id="workbench" className={`workbench mobile-${mobileView}`} role="grid" aria-label="Project tasks and timeline" aria-rowcount={displayed.length + 1} aria-colcount={4} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
         <div className="table-head" role="row" aria-rowindex={1} style={{ width: GRID_WIDTH }}>
           <span role="columnheader">Task</span><span role="columnheader">Start</span><span role="columnheader">Days</span><span role="columnheader">Progress</span>
         </div>
@@ -425,23 +465,27 @@ export default function App() {
             return <span className={date.endsWith("-01") ? "month" : ""} key={date} style={{ left: index * DAY_WIDTH }}>{new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" })}</span>;
           })}
         </div>
-        <div className="rows-space" style={{ height: ordered.length * ROW_HEIGHT + 48, width: GRID_WIDTH + timelineDays * DAY_WIDTH }}>
+        <div className="rows-space" style={{ height: displayed.length * ROW_HEIGHT + 48, width: GRID_WIDTH + timelineDays * DAY_WIDTH }}>
           {visible.map((task, localIndex) => {
             const index = firstVisible + localIndex;
             const top = 48 + index * ROW_HEIGHT;
             const left = dayDiff(timelineStart, task.start) * DAY_WIDTH;
             const width = Math.max(task.type === "milestone" ? 12 : DAY_WIDTH, Math.max(1, dayDiff(task.start, task.end) + 1) * DAY_WIDTH);
+            const hasChildren = parentIds.has(task.id);
             const remoteSelector = collaborators.find(person => person.selection?.taskId === task.id && person.user.id !== cloudSession?.user.id);
             return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} title={remoteSelector ? `${remoteSelector.user.name} is selecting this task` : undefined} className={`task-row ${selectedId === task.id ? "selected" : ""} ${remoteSelector ? "remote-selected" : ""}`} key={task.id} style={{ top, ...(remoteSelector ? { boxShadow: `inset 3px 0 ${remoteSelector.user.color}` } : {}) }} onClick={() => setSelectedId(task.id)}>
               <div className="task-cells" style={{ width: GRID_WIDTH }}>
-                <input role="gridcell" data-grid-row={task.id} data-grid-col="0" disabled={readOnly} aria-label={`Task name row ${index + 1}`} style={{ paddingLeft: 10 + depthFor(task) * 18, fontWeight: task.type === "summary" ? 700 : 400 }} value={task.name} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 0)} onChange={e => updateTask(task.id, { name: e.target.value })} />
+                <div className="task-name-cell" style={{ paddingLeft: 10 + depthFor(task) * 18 }}>
+                  {hasChildren ? <button type="button" className="hierarchy-toggle" aria-label={`${collapsedIds.has(task.id) ? "Expand" : "Collapse"} ${task.name}`} aria-expanded={!collapsedIds.has(task.id)} onClick={event => { event.stopPropagation(); toggleCollapsed(task.id); }}>{collapsedIds.has(task.id) ? <CaretRight aria-hidden="true" /> : <CaretDown aria-hidden="true" />}</button> : task.parentId ? <ArrowBendDownRight className="hierarchy-branch" aria-hidden="true" /> : <span className="hierarchy-spacer" />}
+                  <input role="gridcell" data-grid-row={task.id} data-grid-col="0" disabled={readOnly} aria-label={`Task name row ${index + 1}`} style={{ fontWeight: hasChildren ? 700 : 400 }} value={task.name} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 0)} onChange={e => updateTask(task.id, { name: e.target.value })} />
+                </div>
                 <input role="gridcell" data-grid-row={task.id} data-grid-col="1" disabled={readOnly} aria-label={`Start date for ${task.name}`} type="date" value={task.start} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 1)} onChange={e => updateTask(task.id, { start: e.target.value })} />
                 <input role="gridcell" data-grid-row={task.id} data-grid-col="2" disabled={readOnly} aria-label={`Duration for ${task.name}`} type="number" min="0" value={task.duration} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 2)} onChange={e => updateTask(task.id, { duration: Math.max(0, Number(e.target.value)) })} />
                 <div className="progress-cell"><input role="gridcell" data-grid-row={task.id} data-grid-col="3" disabled={readOnly} aria-label={`Progress for ${task.name}`} type="range" min="0" max="100" value={task.progress} onFocus={() => setSelectedId(task.id)} onKeyDown={event => gridKey(event, index, 3)} onChange={e => updateTask(task.id, { progress: Number(e.target.value) })} /><span>{task.progress}%</span></div>
               </div>
               <div className="timeline-row" style={{ left: GRID_WIDTH, width: timelineDays * DAY_WIDTH }}>
-                <div className={`bar ${task.critical ? "critical" : ""} ${task.invalid ? "invalid" : ""} ${task.type}`} title={`${task.name}: ${task.start} – ${task.end}`} style={{ left, width }}>
-                  {task.type === "task" && <i style={{ width: `${task.progress}%` }} />}
+                <div className={`bar ${task.critical ? "critical" : ""} ${task.invalid ? "invalid" : ""} ${hasChildren ? "group" : task.type}`} title={`${task.name}: ${task.start} – ${task.end}`} style={{ left, width }}>
+                  {task.type === "task" && !hasChildren && <i style={{ width: `${task.progress}%` }} />}
                 </div>
               </div>
             </div>;

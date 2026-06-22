@@ -23,6 +23,7 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - `src/model.ts` defines the canonical project and `.opengantt` v2 data shape, v1 migration, and trust-boundary validation.
 - `src/scheduler.ts` contains deterministic calendar-aware DAG scheduling, constraints, diagnostics, summaries, slack, and critical-path calculations.
 - `src/scheduler.worker.ts` keeps scheduling work off the UI thread; retain the synchronous scheduler as the tested core and worker-error fallback.
+- `src/schedulePreview.ts` keeps edited rows mounted and controlled while the worker recalculates derived schedule fields.
 - `src/storage.ts` is the browser IndexedDB boundary.
 - `src/io.ts` owns imports and downloads. Validate before persistence and keep spreadsheet formula-injection protection.
 - `src/interchange.ts` owns dependency-free RFC 4180 CSV mapping and core MSPDI conversion. Unsupported MSPDI data must produce warnings rather than invented values.
@@ -50,8 +51,11 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Finish-to-start dependencies begin on the next working day after predecessor completion, plus lag. Preserve the distinct FS, SS, FF, and SF semantics.
 - Manual tasks and must-start/must-finish constraints stay fixed; report conflicts instead of silently moving them.
 - Summary dates and progress are derived from descendants. Do not add dependencies to summary tasks.
+- Indenting changes `parentId` only; never convert a task to a summary implicitly. Consecutive indents create siblings under the same parent.
+- Hierarchy collapse is UI-only and must not mutate project data. Tasks with children use bracket-style group bars independently of explicit summary scheduling semantics.
 - Comment bodies are plain text, capped at 10,000 characters, and removed with their task. Keep rendering free of raw HTML.
 - Keep off-screen task rows unmounted so 10,000-task projects do not create 10,000 DOM rows.
+- Keep same-project task rows mounted during edits. Apply raw task fields optimistically and debounce worker recalculation; only a project switch may clear the current schedule.
 - Anonymous data stays on the device unless the user explicitly exports it.
 - Cloud projects are copied explicitly, cached for offline access, and removed from IndexedDB on logout.
 - Anonymous undo history is capped locally; collaborative undo tracks only `LOCAL_ORIGIN` Yjs transactions and must never revert another collaborator.
