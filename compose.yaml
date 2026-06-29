@@ -3,14 +3,12 @@ services:
     build:
       context: .
       args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
-        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
         VITE_COLLAB_URL: ${VITE_COLLAB_URL:-}
     ports:
       - "8080:8080"
     restart: unless-stopped
   collaboration:
-    profiles: ["cloud"]
+    profiles: ["collaboration"]
     build:
       context: .
       dockerfile: Dockerfile.collab

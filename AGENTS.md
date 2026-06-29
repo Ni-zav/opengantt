@@ -4,7 +4,7 @@ Keep this file accurate as the repository changes. Preserve existing guidance wh
 
 ## Product boundaries
 
-OpenGantt is an AGPL-3.0 local-first Gantt web app. The anonymous editor, advanced scheduling, comments, CSV/XLSX/MSPDI interchange, PWA shell, responsive modes, and keyboard productivity features work without configuration. Optional Supabase authentication, cloud projects, roles, public links, and realtime Yjs collaboration require the migration and environment described in `docs/CLOUD.md`. Yjs convergence, offline mapping, local-only undo, XLSX round trips, a golden MSPDI import, a 25-client Hocuspocus room, and read-only server enforcement are tested. The RLS role matrix, public-link revocation, ownership transfer, realtime editor/viewer synchronization, viewer write rejection, and persisted Yjs state were verified against the linked Supabase project on 2026-06-20. The non-realtime production frontend is live at `https://opengantt.pages.dev`; Supabase Auth redirects and Pages security headers are verified. Docker Desktop and its CLI are installed and `docker-users` is active, but WSL/backend startup is denied in this workspace. The Cloudflare Container remains undeployed because the account needs Workers Paid; the interactive browser audit also remains unavailable.
+OpenGantt is an AGPL-3.0 local-first Gantt web app. The anonymous editor, advanced scheduling, comments, CSV/XLSX/MSPDI interchange, PWA shell, responsive modes, and keyboard productivity features work without configuration. Hosted auth, cloud projects, public links, and Cloudflare deployment are paused. Future sharing should use a basic self-hosted collaboration path. Yjs mapping and Hocuspocus server pieces remain available for that future work, but the current app is local-only.
 
 ## Commands
 
@@ -15,7 +15,7 @@ OpenGantt is an AGPL-3.0 local-first Gantt web app. The anonymous editor, advanc
 
 Run both `npm test` and `npm run build` after behavioral changes. Do not commit `node_modules/` or `dist/`.
 
-Also run `npm run collab:build` after server or shared Yjs changes. `npm run collab:start` starts the already-built service.
+Also run `npm run collab:build` after server or shared Yjs changes. `npm run collab:start` starts the already-built service for future self-hosted collaboration work.
 
 ## Architecture
 
@@ -30,16 +30,13 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - `src/interchange.ts` owns dependency-free RFC 4180 CSV mapping and core MSPDI conversion. Unsupported MSPDI data must produce warnings rather than invented values.
 - `src/xlsxWorkbook.ts` owns ExcelJS conversion; `src/xlsx.worker.ts` keeps its large lazy-loaded bundle off the UI thread.
 - `src/yProject.ts` is the canonical field-level Project/Yjs mapping. Materialization order must remain deterministic.
-- `src/collaboration.ts` owns browser Yjs, y-indexeddb, awareness, and local-origin undo lifecycle.
-- `server/index.ts` is the single-node Hocuspocus service with Supabase authorization, compact persistence, awareness sanitization, health, and metrics.
-- `src/cloud.ts` is the dependency-free Supabase Auth/PostgREST boundary. Never expose a service-role key to it.
-- `src/CloudPanel.tsx` owns optional sign-in, cloud-project, member, and sharing UI.
-- `supabase/migrations/` is the authorization source of truth. Client-side role checks are UX only; retain RLS and RPC checks.
+- `src/collaboration.ts` owns dormant browser Yjs, y-indexeddb, awareness, and local-origin undo lifecycle for future self-hosting.
+- `server/index.ts` is the dormant single-node Hocuspocus service with compact persistence, awareness sanitization, health, and metrics.
 - `src/styles.css` contains the responsive workbench, light/dark tokens, reduced-motion fallbacks, desktop/tablet/mobile layouts, and panel transitions. Native CSS remains the UI system; use Phosphor as the single icon family.
 - `public/sw.js` provides the small network-first offline shell. Increment its cache name when cache behavior changes.
 - `Dockerfile`, `compose.yaml`, and `deploy/nginx.conf` serve the static production app with health and security headers.
 - `Dockerfile.collab` runs the collaboration bundle as a non-root user. Keep browser/build packages in `devDependencies`; its Node runtime requires only `@hocuspocus/server` and `yjs`.
-- The root `wrangler.jsonc` owns the Cloudflare Pages frontend deployment. `cloudflare/wrangler.jsonc` and `cloudflare/worker.js` own the single Cloudflare Container WebSocket gateway; do not expose the Supabase service-role key as a Worker variable or Vite value.
+- `docs/DEPLOYMENT.md` covers static and container deployment. There is no Cloudflare deployment path in this repo.
 - `docs/FILE_FORMAT.md`, `docs/USER_GUIDE.md`, and `docs/OPERATIONS.md` define the supported interchange contract and operating procedures; update them with behavioral changes.
 
 ## Invariants
@@ -62,11 +59,9 @@ Also run `npm run collab:build` after server or shared Yjs changes. `npm run col
 - Keep off-screen task rows unmounted so 10,000-task projects do not create 10,000 DOM rows.
 - Keep same-project task rows mounted during edits. Do not animate bar position or width between stale and current schedules; only a project switch may clear the current schedule.
 - Anonymous data stays on the device unless the user explicitly exports it.
-- Cloud projects are copied explicitly, cached for offline access, and removed from IndexedDB on logout.
-- The project switcher is a custom accessible menu so each project can expose a delete action. Local projects may always be deleted after confirmation; cloud deletion remains owner-only and must call the authorized backend before removing the cache.
-- Anonymous undo history is capped locally; collaborative undo tracks only `LOCAL_ORIGIN` Yjs transactions and must never revert another collaborator.
-- Cloud collaboration uses nested Y.Maps rather than one JSON register; do not replace it with whole-snapshot last-writer-wins synchronization.
-- Viewers are read-only in both the client and Hocuspocus connection configuration. UI gating alone is not authorization.
+- The project switcher is a custom accessible menu so each project can expose a delete action. Local projects may always be deleted after confirmation.
+- Anonymous undo history is capped locally. Future collaborative undo should track only `LOCAL_ORIGIN` Yjs transactions and must never revert another collaborator.
+- Future collaboration should use nested Y.Maps rather than one JSON register; do not replace it with whole-snapshot last-writer-wins synchronization.
 - The 8 MiB collaboration payload ceiling must contain the tested 10,000-task Yjs state.
 - The task grid follows spreadsheet focus behavior for vertical arrows, boundary-aware horizontal arrows, Home/End, and Ctrl+Home/Ctrl+End. Preserve native text editing inside cells.
 - `LICENSE` contains the complete official AGPL-3.0 text; project code remains `AGPL-3.0-only`.

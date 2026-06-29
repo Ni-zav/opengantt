@@ -10,7 +10,7 @@ Open the app and edit the sample or choose **New**. Projects autosave to this br
 2. Enter the task name, start date, working-day duration, and progress.
 3. Enable **Advanced** to indent tasks, add dependency types and lags, select calendars, lock manual dates, or add constraints. A task with children becomes a recursive rollup: its dates, duration, progress, and critical state come from its descendants. Use its caret to collapse or expand the branch; timeline arrows show each direct parent-child relationship. Drag a row by its grip to reorder it; move right over another task before dropping to indent the dragged subtree inside it.
 4. Use the pencil on any row to open task details. Outline color is available for every task; hierarchy parents also have a tint that spans their full grid and timeline row.
-5. Open the project menu in the top bar to switch or delete projects. Cloud projects can only be deleted by their owner; every deletion asks for confirmation.
+5. Open the project menu in the top bar to switch or delete projects. Every deletion asks for confirmation.
 4. Red bars identify the critical path. The issue banner explains cycles, locked-date conflicts, non-working starts, and invalid summary links.
 5. Open **Details** for comments and calendar exceptions.
 
@@ -32,17 +32,9 @@ Keyboard commands:
 - **Import** accepts OpenGantt, CSV, XLSX, or Microsoft Project XML. CSV presents a mapping preview. Review conversion warnings after import.
 - XLSX imports are limited to 10 MB. Text imports are limited to 25 MB; CSV and normalized projects are limited to 10,000 tasks.
 
-## Cloud and sharing
+## Sharing
 
-With cloud configuration enabled, sign in through an emailed magic link. **Copy current project to cloud** is explicit; local projects are never uploaded automatically.
-
-- Viewer: read and export.
-- Editor: edit and comment.
-- Owner: edit, manage members, rotate/revoke public links, transfer ownership, and delete.
-
-Public links are unlisted and read-only. Rotating a link immediately invalidates the old URL. Signing out removes opened cloud snapshots from this browser.
-
-When collaboration is configured, the status pill shows connection state and participant initials show live presence. Offline edits remain in IndexedDB and merge on reconnect; Ctrl+Z affects only this browser's edits.
+Hosted accounts, public links, and cloud project management are paused. The current app is local-first; use **Export** to share a project file. Basic self-hosted collaboration can be wired in later from the existing server pieces.
 
 ## Small screens
 

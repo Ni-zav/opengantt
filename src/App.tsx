@@ -11,17 +11,12 @@ import { schedule, type ScheduleResult } from "./scheduler";
 import { previewSchedule } from "./schedulePreview";
 import { moveTasks, type DropPlacement } from "./taskReorder";
 import { deleteProject, loadProjects, saveProject } from "./storage";
-import CloudPanel from "./CloudPanel";
-import { deleteCloudProject, saveCloudProject, type CloudProject, type CloudSession } from "./cloud";
 import { importCsv, importMspdi, inspectCsv, type CsvMapping } from "./interchange";
-import type { CollaborationBinding, Collaborator } from "./collaboration";
 import { exportXlsx, importXlsx } from "./xlsx";
 
 const ROW_HEIGHT = 48;
 const DAY_WIDTH = 28;
 const GRID_WIDTH = 590;
-const collaborationConfigured = Boolean(import.meta.env.VITE_COLLAB_URL);
-
 const dateNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
 const dayDiff = (from: string, to: string) => Math.round((dateNumber(to) - dateNumber(from)) / 86_400_000);
 const addDays = (iso: string, days: number) => new Date(dateNumber(iso) + days * 86_400_000).toISOString().slice(0, 10);
@@ -38,8 +33,6 @@ export default function App() {
   const [newDepType, setNewDepType] = useState<DependencyType>("FS");
   const [newDepLag, setNewDepLag] = useState(0);
   const [holidayDate, setHolidayDate] = useState("");
-  const [cloudSession, setCloudSession] = useState<CloudSession | null>(null);
-  const [cloudProjects, setCloudProjects] = useState<Record<string, CloudProject>>({});
   const [csvImport, setCsvImport] = useState<{ text: string; headers: string[]; preview: string[][]; mapping: CsvMapping } | null>(null);
   const [advancedMode, setAdvancedMode] = useState(() => localStorage.getItem("opengantt.advanced") === "true");
   const [commandOpen, setCommandOpen] = useState(false);
@@ -57,9 +50,6 @@ export default function App() {
   const redoStack = useRef<Project[]>([]);
   const workbenchRef = useRef<HTMLElement>(null);
   const scheduledProjectId = useRef("");
-  const collaboration = useRef<CollaborationBinding | null>(null);
-  const [collaborationStatus, setCollaborationStatus] = useState<"offline" | "connecting" | "connected" | "synced" | "error">("offline");
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -133,59 +123,14 @@ export default function App() {
   }), [displayedIndex, scheduledById, taskById, timelineStart, visible]);
   const selected = project?.tasks.find(task => task.id === selectedId);
   const selectedHasChildren = selected ? parentIds.has(selected.id) : false;
-  const activeCloud = project ? cloudProjects[project.id] : undefined;
-  const readOnly = activeCloud?.role === "viewer";
-  const collaborationToken = activeCloud?.shareSlug ? `public:${activeCloud.shareSlug}` : cloudSession?.accessToken ?? "";
+  const readOnly = false;
 
   useEffect(() => setCollapsedIds(new Set()), [activeId]);
 
-  useEffect(() => {
-    if (!project || !activeCloud || !collaborationToken || !collaborationConfigured) return;
-    let cancelled = false, binding: CollaborationBinding | null = null;
-    import("./collaboration").then(module => {
-      if (cancelled) return;
-      binding = new module.CollaborationBinding({
-        project, token: collaborationToken,
-        user: { id: cloudSession?.user.id ?? null, name: cloudSession?.user.email || "Guest viewer", color: `hsl(${Math.abs((cloudSession?.user.id ?? activeCloud.shareSlug ?? "guest").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) * 47) % 360} 55% 45%)` },
-        onProject: next => {
-          setProjects(current => current.map(item => item.id === next.id ? next : item));
-          saveProject(next);
-        },
-        onStatus: setCollaborationStatus,
-        onCollaborators: setCollaborators
-      });
-      collaboration.current = binding;
-      binding.start().then(() => binding?.select(selectedId)).catch(() => setCollaborationStatus("error"));
-    }).catch(() => setCollaborationStatus("error"));
-    return () => {
-      cancelled = true;
-      if (collaboration.current === binding) collaboration.current = null;
-      binding?.destroy();
-      setCollaborators([]);
-    };
-  }, [project?.id, activeCloud?.id, collaborationToken]);
-
-  useEffect(() => {
-    if (project && collaboration.current) collaboration.current.apply(project);
-  }, [project]);
-
-  useEffect(() => collaboration.current?.select(selectedId), [selectedId]);
-
-  useEffect(() => {
-    if (!project || !cloudSession || !activeCloud || activeCloud.role === "viewer" || (collaborationConfigured && collaboration.current)) return;
-    const timeout = window.setTimeout(() => {
-      setSaveState("Syncing…");
-      saveCloudProject(cloudSession, project).then(() => setSaveState("Saved to cloud"), () => setSaveState("Cloud save failed"));
-    }, 800);
-    return () => clearTimeout(timeout);
-  }, [project, cloudSession, activeCloud?.id, activeCloud?.role]);
-
   function commit(change: (draft: Project) => void) {
     if (!project || readOnly) return;
-    if (!collaboration.current) {
-      undoStack.current = [...undoStack.current.slice(-49), structuredClone(project)];
-      redoStack.current = [];
-    }
+    undoStack.current = [...undoStack.current.slice(-49), structuredClone(project)];
+    redoStack.current = [];
     const draft = structuredClone(project);
     change(draft);
     draft.updatedAt = new Date().toISOString();
@@ -197,11 +142,10 @@ export default function App() {
   function restore(next: Project) {
     setScheduleResult(current => previewSchedule(current, next));
     setProjects(current => current.map(item => item.id === next.id ? next : item));
-    saveProject(next).then(() => setSaveState(activeCloud ? "Syncing…" : "Saved locally"));
+    saveProject(next).then(() => setSaveState("Saved locally"));
   }
 
   function undo() {
-    if (collaboration.current) { collaboration.current.undo(); return; }
     if (!project || !undoStack.current.length || readOnly) return;
     const previous = undoStack.current.pop()!;
     redoStack.current.push(structuredClone(project));
@@ -209,7 +153,6 @@ export default function App() {
   }
 
   function redo() {
-    if (collaboration.current) { collaboration.current.redo(); return; }
     if (!project || !redoStack.current.length || readOnly) return;
     const next = redoStack.current.pop()!;
     undoStack.current.push(structuredClone(project));
@@ -362,7 +305,7 @@ export default function App() {
     const clean = body.trim();
     if (!clean || !selected || readOnly) return;
     const entry = {
-      id: uid(), authorId: cloudSession?.user.id ?? null, authorName: cloudSession?.user.email || "Local user",
+      id: uid(), authorId: null, authorName: "Local user",
       body: clean, mentions: [...clean.matchAll(/(^|\s)@([\w.+-]+(?:@[\w.-]+)?)/g)].map(match => match[2]), createdAt: new Date().toISOString()
     };
     commit(draft => {
@@ -413,14 +356,6 @@ export default function App() {
     setImportWarnings(warnings);
   }
 
-  function openCloudProject(next: Project, cloud: CloudProject) {
-    setProjects(current => [...current.filter(item => item.id !== next.id), next]);
-    setCloudProjects(current => ({ ...current, [next.id]: cloud }));
-    setActiveId(next.id);
-    setSelectedId("");
-    saveProject(next);
-  }
-
   function removeCachedProject(id: string) {
     deleteProject(id);
     setProjects(current => {
@@ -434,42 +369,13 @@ export default function App() {
     });
   }
 
-  function removeCloudProject(id: string) {
-    setCloudProjects(current => { const next = { ...current }; delete next[id]; return next; });
-    removeCachedProject(id);
-  }
-
-  async function deleteListedProject(id: string) {
-    const item = projects.find(project => project.id === id), cloud = cloudProjects[id];
-    if (!item || (cloud && (cloud.role !== "owner" || !cloudSession))) return;
+  function deleteListedProject(id: string) {
+    const item = projects.find(project => project.id === id);
+    if (!item) return;
     if (!confirm(`Permanently delete ${item.name}? This cannot be undone.`)) return;
-    try {
-      if (cloud) { await deleteCloudProject(cloudSession!, cloud.id); removeCloudProject(id); }
-      else removeCachedProject(id);
-      setProjectMenuOpen(false);
-      setSaveState("Project deleted");
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Project deletion failed.");
-    }
-  }
-
-  function handleCloudSession(next: CloudSession | null) {
-    if (!next && cloudSession) {
-      collaboration.current?.destroy(true);
-      collaboration.current = null;
-      const cloudIds = new Set(Object.keys(cloudProjects));
-      cloudIds.forEach(id => deleteProject(id));
-      if (collaborationConfigured) import("./collaboration").then(module => Promise.all([...cloudIds].map(id => module.clearCollaborationCache(id))));
-      const remaining = projects.filter(item => !cloudIds.has(item.id));
-      if (cloudIds.has(activeId)) {
-        const fallback = remaining[0] ?? sampleProject();
-        if (!remaining.length) { remaining.push(fallback); saveProject(fallback); }
-        setActiveId(fallback.id);
-      }
-      setProjects(remaining);
-      setCloudProjects({});
-    }
-    setCloudSession(next);
+    removeCachedProject(id);
+    setProjectMenuOpen(false);
+    setSaveState("Project deleted");
   }
 
   function toggleAdvanced() {
@@ -499,21 +405,17 @@ export default function App() {
         <div className="project-switcher" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setProjectMenuOpen(false); }}>
           <button className="project-trigger" aria-label="Current project" aria-haspopup="menu" aria-expanded={projectMenuOpen} onClick={() => setProjectMenuOpen(open => !open)}><span>{project.name}</span><CaretDown size={12} weight="bold" aria-hidden="true" /></button>
           {projectMenuOpen ? <div className="project-menu" role="menu" aria-label="Projects">{projects.map(item => {
-            const cloud = cloudProjects[item.id], canDelete = !cloud || (cloud.role === "owner" && Boolean(cloudSession));
-            return <div className={item.id === activeId ? "active" : ""} key={item.id}><button role="menuitem" onClick={() => { setActiveId(item.id); setSelectedId(""); setProjectMenuOpen(false); }}><span>{item.name}</span>{cloud ? <small>{cloud.role}</small> : <small>Local</small>}</button><button className="project-delete" disabled={!canDelete} aria-label={`Delete ${item.name}`} title={canDelete ? `Delete ${item.name}` : "Only the owner can delete this cloud project"} onClick={() => deleteListedProject(item.id)}><Trash size={14} /></button></div>;
+            return <div className={item.id === activeId ? "active" : ""} key={item.id}><button role="menuitem" onClick={() => { setActiveId(item.id); setSelectedId(""); setProjectMenuOpen(false); }}><span>{item.name}</span><small>Local</small></button><button className="project-delete" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} onClick={() => deleteListedProject(item.id)}><Trash size={14} /></button></div>;
           })}</div> : null}
         </div>
         <button className="icon-button" aria-label="New project" title="New project" onClick={newProject}><Plus size={17} weight="bold" /></button>
         <div className="topbar-spacer" />
-        {activeCloud && collaborationConfigured && <span className={`sync-pill ${collaborationStatus}`} role="status" aria-live="polite">{collaborationStatus}</span>}
-        {collaborators.length > 0 && <div className="collaborators" aria-label={`${collaborators.length} connected participant${collaborators.length === 1 ? "" : "s"}`}>{collaborators.slice(0, 4).map(person => <span key={person.clientId} title={`${person.user.name}${person.selection?.taskId ? " · selecting a task" : ""}`} style={{ background: person.user.color }}>{person.user.name.slice(0, 1).toUpperCase()}</span>)}{collaborators.length > 4 && <b>+{collaborators.length - 4}</b>}</div>}
         <div className="toolbar-group history-actions">
-          <button className="icon-button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={readOnly || (!collaboration.current?.canUndo() && !undoStack.current.length)} onClick={undo}><ArrowCounterClockwise size={17} /></button>
-          <button className="icon-button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={readOnly || (!collaboration.current?.canRedo() && !redoStack.current.length)} onClick={redo}><ArrowClockwise size={17} /></button>
+          <button className="icon-button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={readOnly || !undoStack.current.length} onClick={undo}><ArrowCounterClockwise size={17} /></button>
+          <button className="icon-button" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" disabled={readOnly || !redoStack.current.length} onClick={redo}><ArrowClockwise size={17} /></button>
         </div>
         <button className="command-button" title="Commands (Ctrl+K)" onClick={() => setCommandOpen(true)}><Command size={16} /><span>Commands</span><kbd>Ctrl K</kbd></button>
         <span className={`save-state ${saveState.includes("fail") ? "error" : ""}`} role="status" aria-live="polite">{saveState}</span>
-        <CloudPanel current={project} activeCloud={activeCloud} onOpen={openCloudProject} onSession={handleCloudSession} onDelete={removeCloudProject} />
         <div className="toolbar-group file-actions">
         <button title="Import project" onClick={() => fileInput.current?.click()}><UploadSimple size={16} /><span>Import</span></button>
         <input ref={fileInput} hidden type="file" accept=".opengantt,.csv,.xml,.xlsx,application/json,text/csv,application/xml,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={e => importFile(e.target.files?.[0])} />
@@ -527,7 +429,7 @@ export default function App() {
       <section className="project-heading">
         <div className="project-meta">
           <input disabled={readOnly} className="project-name" aria-label="Project name" value={project.name} onChange={e => commit(d => { d.name = e.target.value; })} />
-          <p><span className={`project-state ${activeCloud ? "cloud" : "local"}`}>{activeCloud ? activeCloud.role : "Local"}</span>{activeCloud ? `${activeCloud.visibility} cloud project` : "Private on this device"}</p>
+          <p><span className="project-state local">Local</span>Private on this device</p>
         </div>
         <div className="toolbar" aria-label="Task tools">
           <div className="mobile-switch segmented" role="group" aria-label="Mobile view"><button aria-pressed={mobileView === "list"} className={mobileView === "list" ? "active" : ""} onClick={() => setMobileView("list")}><ListBullets size={15} />List</button><button aria-pressed={mobileView === "timeline"} className={mobileView === "timeline" ? "active" : ""} onClick={() => setMobileView("timeline")}><ChartBarHorizontal size={15} />Timeline</button></div>
@@ -537,7 +439,7 @@ export default function App() {
           <button title="Delete selected task" disabled={!selectedId || readOnly} className="danger icon-button" onClick={removeSelected}><Trash size={16} /></button>
         </div>
       </section>
-      {showWelcome && <section className="welcome-banner"><Info size={19} weight="fill" /><div><strong>Your plans stay on this device</strong><span>Add tasks or import a file. Sign in only when you want cloud sharing.</span></div><button onClick={() => { localStorage.setItem("opengantt.welcome.dismissed", "true"); setShowWelcome(false); }}>Got it</button></section>}
+      {showWelcome && <section className="welcome-banner"><Info size={19} weight="fill" /><div><strong>Your plans stay on this device</strong><span>Add tasks or import a file. Self-hosted sharing can be wired in later.</span></div><button onClick={() => { localStorage.setItem("opengantt.welcome.dismissed", "true"); setShowWelcome(false); }}>Got it</button></section>}
 
       {scheduleResult?.diagnostics.length ? <div className="diagnostics" role="status"><WarningCircle size={17} weight="fill" /><span><b>{scheduleResult.diagnostics.length} schedule issue{scheduleResult.diagnostics.length === 1 ? "" : "s"}</b>{scheduleResult.diagnostics[0].message}</span></div> : null}
       <main ref={workbenchRef} id="workbench" className={`workbench mobile-${mobileView}`} role="grid" aria-label="Project tasks and timeline" aria-rowcount={displayed.length + 1 + (displayed.length ? 1 : 0)} aria-colcount={4} onScroll={e => setScrollTop(e.currentTarget.scrollTop)}>
@@ -562,10 +464,9 @@ export default function App() {
             const left = dayDiff(timelineStart, task.start) * DAY_WIDTH;
             const width = Math.max(task.type === "milestone" ? 12 : DAY_WIDTH, Math.max(1, dayDiff(task.start, task.end) + 1) * DAY_WIDTH);
             const hasChildren = parentIds.has(task.id);
-            const remoteSelector = collaborators.find(person => person.selection?.taskId === task.id && person.user.id !== cloudSession?.user.id);
             const placement = dropTarget?.id === task.id ? dropTarget.placement : "";
-            const rowStyle = { top, ...(hasChildren && task.taskColor ? { "--group-row-color": task.taskColor } : {}), ...(remoteSelector ? { boxShadow: `inset 3px 0 ${remoteSelector.user.color}` } : {}) } as React.CSSProperties;
-            return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} title={remoteSelector ? `${remoteSelector.user.name} is selecting this task` : undefined} className={`task-row ${hasChildren ? "group-row" : ""} ${selectedId === task.id ? "selected" : ""} ${draggedId === task.id ? "dragging" : ""} ${placement ? `drop-${placement}` : ""} ${remoteSelector ? "remote-selected" : ""}`} key={task.id} style={rowStyle} onClick={() => setSelectedId(task.id)} onDragOver={event => dragOver(event, task)} onDrop={event => dropTask(event, task)} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null); }}>
+            const rowStyle = { top, ...(hasChildren && task.taskColor ? { "--group-row-color": task.taskColor } : {}) } as React.CSSProperties;
+            return <div role="row" tabIndex={-1} aria-rowindex={index + 2} aria-selected={selectedId === task.id} aria-invalid={task.invalid || undefined} className={`task-row ${hasChildren ? "group-row" : ""} ${selectedId === task.id ? "selected" : ""} ${draggedId === task.id ? "dragging" : ""} ${placement ? `drop-${placement}` : ""}`} key={task.id} style={rowStyle} onClick={() => setSelectedId(task.id)} onDragOver={event => dragOver(event, task)} onDrop={event => dropTask(event, task)} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null); }}>
               <div className="task-cells" style={{ width: GRID_WIDTH }}>
                 <div className="task-name-cell" style={{ paddingLeft: 10 + depthFor(task) * 18 }}>
                   <button type="button" className="drag-handle" draggable={!readOnly} disabled={readOnly} aria-label={`Move ${task.name}`} title="Drag to reorder; move right over a task to indent" onClick={event => event.stopPropagation()} onDragStart={event => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", task.id); setSelectedId(task.id); setDraggedId(task.id); }} onDragEnd={() => { setDraggedId(""); setDropTarget(null); }}><DotsSixVertical aria-hidden="true" /></button>

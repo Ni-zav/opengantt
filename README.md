@@ -1,6 +1,6 @@
 # OpenGantt
 
-OpenGantt is an AGPL-3.0 local-first Gantt chart web app. It works anonymously in the browser and can optionally add Supabase cloud storage, role-based sharing, public viewer links, and realtime collaboration.
+OpenGantt is an AGPL-3.0 local-first Gantt chart web app. It works anonymously in the browser and keeps projects on the device by default.
 
 ## Run locally
 
@@ -28,11 +28,11 @@ npm run build
 - Microsoft Project XML core import/export with conversion warnings
 - Undo/redo, command search, Simple/Advanced modes, and separate mobile list/timeline views
 - Task comment threads, replies, mentions, and resolution stored with the project
-- Realtime Yjs collaboration, presence/selections, offline merge, and local-only collaborative undo
+- Dormant Yjs collaboration code for a future self-hosted setup
 - XLSX workbook import/export in a lazy worker, including tasks, dependencies, calendars, and comments
 - Installable offline PWA shell
 
-Supabase-backed accounts, cloud projects, viewer/editor/owner policies, member management, ownership transfer, public viewer links, and realtime collaboration are implemented behind environment configuration. Apply the migration and configure collaboration as described in [`docs/CLOUD.md`](docs/CLOUD.md) and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+Cloud accounts, public links, and hosted auth are paused. The next sharing path should be basic self-hosted collaboration, reusing the existing Hocuspocus server pieces when needed.
 
 ## File format
 
@@ -40,6 +40,4 @@ An `.opengantt` file is formatted UTF-8 JSON with `format: "opengantt"` and `ver
 
 ## Deployment
 
-The production frontend is live at [opengantt.pages.dev](https://opengantt.pages.dev). Supabase cloud projects work there; realtime collaboration remains disabled until the prepared Cloudflare Container is deployed on a Workers Paid account.
-
-Run the static build directly or use `docker compose up --build -d`. Cloudflare, container, cloud, upgrade, and authorization instructions are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [`docs/CLOUD.md`](docs/CLOUD.md).
+Run the static build directly or use `docker compose up --build -d`. For future self-hosted collaboration notes, see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
