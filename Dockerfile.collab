@@ -7,10 +7,11 @@ RUN npm run collab:build
 
 FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production COLLAB_PORT=1234
+ENV NODE_ENV=production COLLAB_PORT=1234 COLLAB_DATA_DIR=/data
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/server-dist ./server-dist
+RUN mkdir -p /data && chown node:node /data
 EXPOSE 1234 1235
 HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://127.0.0.1:1235/health || exit 1
 USER node

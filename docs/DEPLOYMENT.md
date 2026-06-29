@@ -16,13 +16,13 @@ The web app listens on port 8080 and exposes `/health`. Put it behind an HTTPS r
 
 ## Future self-hosted collaboration
 
-The Hocuspocus server remains available for a later self-hosted setup. Set `VITE_COLLAB_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `ALLOWED_ORIGINS`, then run:
+The Hocuspocus server remains available for a later self-hosted setup. Set `VITE_COLLAB_URL`, optional `COLLAB_TOKEN`, and `ALLOWED_ORIGINS`, then run:
 
 ```sh
 docker compose --profile collaboration up --build -d
 ```
 
-The service-role key is available only to the collaboration container. Expose port 1234 through an HTTPS/WSS reverse proxy. Port 1235 serves `/health` and `/metrics`; Compose binds it to host loopback only.
+The collaboration container stores Yjs document updates in the `collab-data` volume. Expose port 1234 through an HTTPS/WSS reverse proxy. Port 1235 serves `/health` and `/metrics`; Compose binds it to host loopback only.
 
 ## Upgrade
 
