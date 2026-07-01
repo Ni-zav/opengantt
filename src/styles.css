@@ -194,9 +194,9 @@ kbd {
 .progress-cell input { min-width: 0; accent-color: var(--accent); }
 .timeline-row { position: absolute; height: var(--row-height); background-image: repeating-linear-gradient(90deg, transparent 0 27px, color-mix(in srgb, var(--line) 46%, transparent) 27px 28px); }
 .today-column { position: absolute; z-index: 0; width: 28px; border-right: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); border-left: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); background: color-mix(in srgb, var(--accent-soft) 38%, transparent); pointer-events: none; }
-.hierarchy-links { position: absolute; z-index: 4; overflow: visible; pointer-events: none; }
-.hierarchy-line { fill: none; stroke-width: 1.5; }
-.hierarchy-arrow { stroke: none; }
+.dependency-links { position: absolute; z-index: 3; overflow: visible; pointer-events: none; }
+.dependency-line { fill: none; stroke: var(--muted); stroke-width: 1.25; stroke-dasharray: 3 4; opacity: .62; }
+.dependency-arrow { fill: var(--muted); opacity: .62; }
 .group-row .task-cells > input:disabled, .group-row .progress-cell input:disabled { opacity: .82; cursor: not-allowed; -webkit-text-fill-color: var(--muted); }
 .bar { position: absolute; top: 14px; height: 20px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--accent) 24%, var(--surface)); box-shadow: 0 1px 2px rgb(20 53 41 / .12); transition: transform 100ms ease; }
 .bar:hover { transform: translateY(-1px); }

@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { exportCsv, exportOpenGantt, exportProjectXml, importOpenGantt } from "./io";
 import { createTask, isoToday, sampleProject, uid, type DependencyType, type Project, type Task } from "./model";
-import { schedule, type ScheduleResult } from "./scheduler";
+import { schedule, type ScheduledTask, type ScheduleResult } from "./scheduler";
 import { previewSchedule } from "./schedulePreview";
 import { moveTasks, type DropPlacement } from "./taskReorder";
 import { deleteProject, loadProjects, saveProject } from "./storage";
@@ -111,16 +111,18 @@ export default function App() {
   const visible = displayed.slice(firstVisible, firstVisible + 30);
   const scheduledById = useMemo(() => new Map(ordered.map(task => [task.id, task])), [ordered]);
   const displayedIndex = useMemo(() => new Map(displayed.map((task, index) => [task.id, index])), [displayed]);
-  const hierarchyLinks = useMemo(() => visible.flatMap(task => {
-    if (!task.parentId) return [];
-    const parent = scheduledById.get(task.parentId), parentIndex = displayedIndex.get(task.parentId), childIndex = displayedIndex.get(task.id);
-    if (!parent || parentIndex === undefined || childIndex === undefined) return [];
-    const parentX = dayDiff(timelineStart, parent.start) * DAY_WIDTH;
-    const childX = dayDiff(timelineStart, task.start) * DAY_WIDTH - 5;
-    const childY = childIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-    const bendX = Math.max(6, Math.min(parentX, childX) - 12);
-    return [{ id: `${parent.id}-${task.id}`, color: outlineFor(task), path: `M ${parentX} ${parentIndex * ROW_HEIGHT + ROW_HEIGHT / 2} H ${bendX} V ${childY} H ${childX}`, arrow: `M ${childX} ${childY} L ${childX - 8} ${childY - 4} L ${childX - 8} ${childY + 4} Z` }];
-  }), [displayedIndex, scheduledById, taskById, timelineStart, visible]);
+  const dependencyLinks = useMemo(() => project?.dependencies.flatMap(dep => {
+    const from = scheduledById.get(dep.from), to = scheduledById.get(dep.to);
+    const fromIndex = displayedIndex.get(dep.from), toIndex = displayedIndex.get(dep.to);
+    if (!from || !to || fromIndex === undefined || toIndex === undefined) return [];
+    const xFor = (task: ScheduledTask, edge: "start" | "end") => dayDiff(timelineStart, edge === "start" ? task.start : task.end) * DAY_WIDTH + (edge === "end" ? DAY_WIDTH : 0);
+    const fromX = xFor(from, dep.type === "SS" || dep.type === "SF" ? "start" : "end");
+    const toX = xFor(to, dep.type === "FF" || dep.type === "SF" ? "end" : "start");
+    const fromY = fromIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const toY = toIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
+    const bendX = Math.max(Math.min(fromX, toX) - 14, 8);
+    return [{ id: dep.id, path: `M ${fromX} ${fromY} H ${bendX} V ${toY} H ${toX}`, arrow: `M ${toX} ${toY} L ${toX - 8} ${toY - 4} L ${toX - 8} ${toY + 4} Z` }];
+  }) ?? [], [displayedIndex, project?.dependencies, scheduledById, timelineStart]);
   const selected = project?.tasks.find(task => task.id === selectedId);
   const selectedHasChildren = selected ? parentIds.has(selected.id) : false;
   const readOnly = false;
@@ -455,8 +457,8 @@ export default function App() {
         </div>
         <div className="rows-space" style={{ height: displayed.length * ROW_HEIGHT + (displayed.length ? ROW_HEIGHT : 0), width: GRID_WIDTH + timelineDays * DAY_WIDTH }}>
           {todayOffset >= 0 && todayOffset < timelineDays ? <div className="today-column" aria-hidden="true" style={{ left: GRID_WIDTH + todayOffset * DAY_WIDTH, height: displayed.length * ROW_HEIGHT }} /> : null}
-          <svg className="hierarchy-links" aria-hidden="true" style={{ left: GRID_WIDTH, top: 0, width: timelineDays * DAY_WIDTH, height: displayed.length * ROW_HEIGHT }}>
-            {hierarchyLinks.map(link => <g key={link.id}><path className="hierarchy-line" d={link.path} style={{ stroke: link.color }} /><path className="hierarchy-arrow" d={link.arrow} style={{ fill: link.color }} /></g>)}
+          <svg className="dependency-links" aria-hidden="true" style={{ left: GRID_WIDTH, top: 0, width: timelineDays * DAY_WIDTH, height: displayed.length * ROW_HEIGHT }}>
+            {dependencyLinks.map(link => <g key={link.id}><path className="dependency-line" d={link.path} /><path className="dependency-arrow" d={link.arrow} /></g>)}
           </svg>
           {visible.map((task, localIndex) => {
             const index = firstVisible + localIndex;
